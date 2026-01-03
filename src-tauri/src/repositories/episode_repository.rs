@@ -1,11 +1,24 @@
-use crate::domain::episode::{Episode, EpisodeNumber, EpisodeState};
-use crate::error::AppResult;
+// src-tauri/src/repositories/episode_repository.rs
+//
+// Episode Repository - Data Mapper for Episode Entity
+//
+// CRITICAL RULES:
+// - Repositories are DUMB data mappers
+// - NO business logic
+// - NO invariant enforcement
+// - NO event emission
+// - NO cross-repository calls
+// - Explicit SQL only
+
+use std::sync::Arc;
+use rusqlite::{params, Row};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::{params, Row};
-use std::sync::Arc;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
+use chrono::{DateTime, Utc};
+
+use crate::domain::episode::{Episode, EpisodeNumber, EpisodeState};
+use crate::error::AppResult;
 
 pub trait EpisodeRepository: Send + Sync {
     fn save(&self, episode: &Episode) -> AppResult<()>;
@@ -19,6 +32,20 @@ pub trait EpisodeRepository: Send + Sync {
     fn link_file(&self, episode_id: Uuid, file_id: Uuid, is_primary: bool) -> AppResult<()>;
     fn unlink_file(&self, episode_id: Uuid, file_id: Uuid) -> AppResult<()>;
     fn get_linked_files(&self, episode_id: Uuid) -> AppResult<Vec<(Uuid, bool)>>;
+    
+    // ========================================================================
+    // READ-ONLY FIND METHODS (Added for Phase 4 Resolution)
+    // ========================================================================
+    
+    /// Find an episode by anime ID and regular episode number.
+    /// Returns None if no matching episode exists.
+    /// This is a READ-ONLY operation - no state mutation.
+    fn find_by_anime_and_number(&self, anime_id: Uuid, number: u32) -> AppResult<Option<Episode>>;
+    
+    /// Find an episode by anime ID and special label (e.g., "OVA", "Special 1").
+    /// Returns None if no matching episode exists.
+    /// This is a READ-ONLY operation - no state mutation.
+    fn find_by_anime_and_special_label(&self, anime_id: Uuid, label: &str) -> AppResult<Option<Episode>>;
 }
 
 pub struct SqliteEpisodeRepository {
@@ -184,5 +211,35 @@ impl EpisodeRepository for SqliteEpisodeRepository {
         let mut links = Vec::new();
         for link in rows { links.push(link?); }
         Ok(links)
+    }
+
+    // ========================================================================
+    // READ-ONLY FIND METHODS (Added for Phase 4 Resolution)
+    // ========================================================================
+
+    fn find_by_anime_and_number(&self, anime_id: Uuid, number: u32) -> AppResult<Option<Episode>> {
+        let conn = self.pool.get()?;
+        let mut stmt = conn.prepare(
+            "SELECT * FROM episodes WHERE anime_id = ?1 AND numero_tipo = 'regular' AND numero_valor = ?2"
+        )?;
+        let mut rows = stmt.query(params![anime_id.to_string(), number.to_string()])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(Self::row_to_episode(row)?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn find_by_anime_and_special_label(&self, anime_id: Uuid, label: &str) -> AppResult<Option<Episode>> {
+        let conn = self.pool.get()?;
+        let mut stmt = conn.prepare(
+            "SELECT * FROM episodes WHERE anime_id = ?1 AND numero_tipo = 'special' AND numero_valor = ?2"
+        )?;
+        let mut rows = stmt.query(params![anime_id.to_string(), label])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(Self::row_to_episode(row)?))
+        } else {
+            Ok(None)
+        }
     }
 }

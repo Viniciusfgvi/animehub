@@ -17,6 +17,7 @@ pub mod collection;
 pub mod statistics;
 pub mod external_reference;
 pub mod anime_alias;
+pub mod resolution;
 
 // ============================================================================
 // PUBLIC API RE-EXPORTS

@@ -26,6 +26,7 @@ windows = { version = "0.53", features = [
   "Win32_System_IO",
   "Win32_Security"
 ] }
+regex = "1"
 
 
 

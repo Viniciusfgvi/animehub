@@ -7,6 +7,7 @@
 pub mod types;
 pub mod bus;
 pub mod handlers;
+pub mod resolution_events;
 
 // ============================================================================
 // PUBLIC EXPORTS - Event Types and Bus Only
@@ -53,6 +54,8 @@ pub use types::{
 };
 
 pub use bus::{EventBus, EventLogEntry};
+
+pub use resolution_events::*;
 
 // ============================================================================
 // INTERNAL ONLY - DO NOT EXPORT

@@ -10,6 +10,10 @@ pub mod statistics_service;
 pub mod external_integration_service;
 pub mod subtitle_service;
 pub mod playback_observer;
+pub mod resolution_service;
+
+#[cfg(test)]
+mod resolution_service_tests;
 
 // Re-export all services and their types
 pub use anime_service::{
@@ -52,4 +56,9 @@ pub use subtitle_service::{
     SubtitleService,
     StyleTransformRequest,
     TimingTransformRequest,
+};
+
+pub use resolution_service::{
+    ResolutionService,
+    ResolutionRules,
 };
