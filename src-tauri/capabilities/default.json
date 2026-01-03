@@ -1,0 +1,31 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "main-capability",
+    "description": "Permissões padrão para o AnimeHub",
+    "windows": [
+        "main"
+    ],
+    "permissions": [
+        "core:default",
+        "shell:allow-open",
+        "dialog:default",
+        {
+            "identifier": "fs:allow-read",
+            "allow": [
+                {
+                    "path": "$HOME/**"
+                }
+            ]
+        },
+        {
+            "identifier": "fs:allow-write",
+            "allow": [
+                {
+                    "path": "$HOME/**"
+                }
+            ]
+        },
+        "fs:allow-exists",
+        "fs:allow-stat"
+    ]
+}

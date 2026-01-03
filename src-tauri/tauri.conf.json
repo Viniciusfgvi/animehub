@@ -1,0 +1,28 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "productName": "AnimeHub",
+    "version": "0.1.0",
+    "identifier": "com.animehub.app",
+    "build": {
+        "beforeDevCommand": "npm run dev",
+        "beforeBuildCommand": "npm run build",
+        "devUrl": "http://localhost:5173"
+    },
+    "app": {
+        "windows": [
+            {
+                "title": "AnimeHub",
+                "width": 1280,
+                "height": 800,
+                "resizable": true,
+                "fullscreen": false
+            }
+        ],
+        "security": {
+            "csp": null
+        }
+    },
+    "plugins": {
+        "dialog": null
+    }
+}
