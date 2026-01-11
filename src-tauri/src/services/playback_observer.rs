@@ -14,9 +14,9 @@ use std::time::Duration;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 
-use crate::integrations::mpv::MpvClient;
+use crate::events::types::{PlaybackFinished, PlaybackProgressUpdated, PlaybackStopped};
 use crate::events::EventBus;
-use crate::events::types::{PlaybackProgressUpdated, PlaybackFinished, PlaybackStopped};
+use crate::integrations::mpv::MpvClient;
 
 #[derive(Debug, Clone)]
 pub struct ObserverConfig {
@@ -119,7 +119,10 @@ impl PlaybackObserver {
                 };
 
                 if !mpv_client.is_running() {
-                    event_bus.emit(PlaybackStopped::new(current.episode_id, current.last_reported_position));
+                    event_bus.emit(PlaybackStopped::new(
+                        current.episode_id,
+                        current.last_reported_position,
+                    ));
                     let mut guard = session.lock().unwrap();
                     *guard = None;
                     break;
@@ -138,9 +141,10 @@ impl PlaybackObserver {
                 }
 
                 // Verifica conclusão (90% ou mais)
-                let completed = current.completed_emitted || current.duration.map_or(false, |dur| {
-                    (position as f32 / dur as f32) >= config.completion_threshold
-                });
+                let completed = current.completed_emitted
+                    || current.duration.map_or(false, |dur| {
+                        (position as f32 / dur as f32) >= config.completion_threshold
+                    });
 
                 if completed && !current.completed_emitted {
                     // Usa duração conhecida ou 0 como fallback

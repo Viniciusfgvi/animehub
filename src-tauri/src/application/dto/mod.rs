@@ -8,9 +8,9 @@
 // - DTOs are simple, serializable structs
 // - Conversion FROM domain entities only (never TO)
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 // ============================================================================
 // ANIME DTOs

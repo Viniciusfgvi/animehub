@@ -8,35 +8,35 @@ use uuid::Uuid;
 pub struct Anime {
     /// Internal immutable identifier
     pub id: Uuid,
-    
+
     /// Primary title (usually Japanese)
     pub titulo_principal: String,
-    
+
     /// Alternative titles (romaji, english, synonyms)
     pub titulos_alternativos: Vec<String>,
-    
+
     /// Type of anime work
     pub tipo: AnimeType,
-    
+
     /// Current status
     pub status: AnimeStatus,
-    
+
     /// Total number of episodes (if known)
     pub total_episodios: Option<u32>,
-    
+
     /// Start date (if known)
     pub data_inicio: Option<DateTime<Utc>>,
-    
+
     /// End date (if known)
     pub data_fim: Option<DateTime<Utc>>,
-    
+
     /// Free-form metadata (genres, studio, etc.)
     /// Stored as JSON internally
     pub metadados_livres: serde_json::Value,
-    
+
     /// Creation timestamp
     pub criado_em: DateTime<Utc>,
-    
+
     /// Last update timestamp
     pub atualizado_em: DateTime<Utc>,
 }
@@ -63,10 +63,7 @@ pub enum AnimeStatus {
 impl Anime {
     /// Create a new Anime entity
     /// This is the only way to construct a valid Anime
-    pub fn new(
-        titulo_principal: String,
-        tipo: AnimeType,
-    ) -> Self {
+    pub fn new(titulo_principal: String, tipo: AnimeType) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
@@ -82,7 +79,7 @@ impl Anime {
             atualizado_em: now,
         }
     }
-    
+
     /// Update metadata
     /// This preserves the creation timestamp and updates the modification timestamp
     pub fn update_metadata(
@@ -120,7 +117,7 @@ impl Anime {
         if let Some(meta) = metadados_livres {
             self.metadados_livres = meta;
         }
-        
+
         self.atualizado_em = Utc::now();
     }
 }

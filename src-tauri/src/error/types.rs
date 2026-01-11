@@ -1,7 +1,7 @@
 // src-tauri/src/error/types.rs
+use crate::domain::DomainError;
 use serde::Serialize;
 use thiserror::Error;
-use crate::domain::DomainError;
 
 #[derive(Debug, Error)]
 pub enum AppError {

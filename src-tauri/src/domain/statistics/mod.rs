@@ -1,5 +1,5 @@
 //! Critical Statistics Invariants:
-//! 
+//!
 //! 1. Statistics are ALWAYS derived, NEVER primary
 //! 2. Statistics can be recalculated at any time
 //! 3. Statistics can be deleted without affecting domains
@@ -9,4 +9,4 @@
 //! 7. Stale statistics are acceptable (eventual consistency)
 
 pub mod entity;
-pub use entity::{StatisticsSnapshot, StatisticsType, GlobalStatistics, AnimeStatistics};
+pub use entity::{AnimeStatistics, GlobalStatistics, StatisticsSnapshot, StatisticsType};

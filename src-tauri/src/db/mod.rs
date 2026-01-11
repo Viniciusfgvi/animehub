@@ -11,16 +11,9 @@ pub mod connection;
 pub mod migrations;
 
 pub use connection::{
-    ConnectionPool,
-    PooledConn,
-    create_connection_pool,
-    get_connection,
-    get_database_path,
+    create_connection_pool, get_connection, get_database_path, ConnectionPool, PooledConn,
 };
 
 pub use migrations::{
-    initialize_database,
-    verify_database_integrity,
-    get_database_stats,
-    DatabaseStats,
+    get_database_stats, initialize_database, verify_database_integrity, DatabaseStats,
 };

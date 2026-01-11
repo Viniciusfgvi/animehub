@@ -13,7 +13,5 @@
 pub mod subtitle_workspace;
 
 pub use subtitle_workspace::{
-    SubtitleWorkspace,
-    SubtitleWorkspaceCreated,
-    SubtitleWorkspaceCleaned,
+    SubtitleWorkspace, SubtitleWorkspaceCleaned, SubtitleWorkspaceCreated,
 };

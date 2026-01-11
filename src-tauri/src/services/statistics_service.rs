@@ -1,14 +1,14 @@
 // src-tauri/src/services/statistics_service.rs
+use crate::domain::episode::EpisodeState;
+use crate::domain::statistics::{
+    AnimeStatistics, GlobalStatistics, StatisticsSnapshot, StatisticsType,
+};
+use crate::error::AppResult;
+use crate::events::{EpisodeCompleted, EventBus, StatisticsUpdated};
+use crate::repositories::{AnimeRepository, EpisodeRepository, StatisticsRepository};
+use chrono::Utc;
 use std::sync::Arc;
 use uuid::Uuid;
-use chrono::Utc;
-use crate::domain::statistics::{
-    StatisticsSnapshot, StatisticsType, GlobalStatistics, AnimeStatistics
-};
-use crate::domain::episode::EpisodeState;
-use crate::repositories::{StatisticsRepository, AnimeRepository, EpisodeRepository};
-use crate::events::{EventBus, StatisticsUpdated, EpisodeCompleted};
-use crate::error::AppResult;
 
 pub struct StatisticsService {
     statistics_repo: Arc<dyn StatisticsRepository>,
@@ -76,10 +76,8 @@ impl StatisticsService {
             animes_completos,
         };
 
-        let snapshot = StatisticsSnapshot::new(
-            StatisticsType::Global,
-            serde_json::to_value(&stats)?,
-        );
+        let snapshot =
+            StatisticsSnapshot::new(StatisticsType::Global, serde_json::to_value(&stats)?);
 
         self.statistics_repo.save_snapshot(&snapshot)?;
         Ok(stats)
@@ -90,43 +88,46 @@ impl StatisticsService {
         let statistics_repo = Arc::clone(&self.statistics_repo);
         let event_bus = Arc::clone(&self.event_bus);
 
-        self.event_bus.subscribe::<EpisodeCompleted, _>(move |event| {
-            if let Ok(episodes) = episode_repo.list_by_anime(event.anime_id) {
-                let total_episodes = episodes.len() as u32;
-                let mut episodes_assistidos = 0;
-                let mut tempo_assistido = 0u64;
+        self.event_bus
+            .subscribe::<EpisodeCompleted, _>(move |event| {
+                if let Ok(episodes) = episode_repo.list_by_anime(event.anime_id) {
+                    let total_episodes = episodes.len() as u32;
+                    let mut episodes_assistidos = 0;
+                    let mut tempo_assistido = 0u64;
 
-                for ep in &episodes {
-                    if ep.estado == EpisodeState::Concluido {
-                        episodes_assistidos += 1;
+                    for ep in &episodes {
+                        if ep.estado == EpisodeState::Concluido {
+                            episodes_assistidos += 1;
+                        }
+                        tempo_assistido += ep.progresso_atual;
                     }
-                    tempo_assistido += ep.progresso_atual;
+
+                    let progresso_percentual = if total_episodes > 0 {
+                        (episodes_assistidos as f32 / total_episodes as f32) * 100.0
+                    } else {
+                        0.0
+                    };
+
+                    let stats = AnimeStatistics {
+                        anime_id: event.anime_id,
+                        total_episodes,
+                        episodes_assistidos,
+                        tempo_assistido,
+                        progresso_percentual,
+                        ultimo_episodio_assistido: Some(event.episode_id),
+                        data_ultima_visualizacao: Some(Utc::now()),
+                    };
+
+                    let snapshot = StatisticsSnapshot::new(
+                        StatisticsType::PorAnime {
+                            anime_id: event.anime_id,
+                        },
+                        serde_json::to_value(&stats).unwrap(),
+                    );
+
+                    let _ = statistics_repo.save_snapshot(&snapshot);
                 }
-
-                let progresso_percentual = if total_episodes > 0 {
-                    (episodes_assistidos as f32 / total_episodes as f32) * 100.0
-                } else {
-                    0.0
-                };
-
-                let stats = AnimeStatistics {
-                    anime_id: event.anime_id,
-                    total_episodes,
-                    episodes_assistidos,
-                    tempo_assistido,
-                    progresso_percentual,
-                    ultimo_episodio_assistido: Some(event.episode_id),
-                    data_ultima_visualizacao: Some(Utc::now()),
-                };
-
-                let snapshot = StatisticsSnapshot::new(
-                    StatisticsType::PorAnime { anime_id: event.anime_id },
-                    serde_json::to_value(&stats).unwrap(),
-                );
-
-                let _ = statistics_repo.save_snapshot(&snapshot);
-            }
-            event_bus.emit(StatisticsUpdated::new());
-        });
+                event_bus.emit(StatisticsUpdated::new());
+            });
     }
 }

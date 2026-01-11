@@ -8,13 +8,13 @@ use uuid::Uuid;
 pub struct StatisticsSnapshot {
     /// Snapshot identifier
     pub id: Uuid,
-    
+
     /// Type of statistics
     pub tipo: StatisticsType,
-    
+
     /// The actual data (stored as JSON for flexibility)
     pub valor: serde_json::Value,
-    
+
     /// When this snapshot was generated
     pub gerado_em: DateTime<Utc>,
 }
@@ -25,12 +25,15 @@ pub struct StatisticsSnapshot {
 pub enum StatisticsType {
     /// Global statistics across all anime
     Global,
-    
+
     /// Statistics for a specific anime
     PorAnime { anime_id: Uuid },
-    
+
     /// Statistics for a time period
-    PorPeriodo { inicio: DateTime<Utc>, fim: DateTime<Utc> },
+    PorPeriodo {
+        inicio: DateTime<Utc>,
+        fim: DateTime<Utc>,
+    },
 }
 
 impl StatisticsSnapshot {

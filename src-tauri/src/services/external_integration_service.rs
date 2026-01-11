@@ -1,11 +1,13 @@
 // src-tauri/src/services/external_integration_service.rs
+use crate::domain::{validate_external_reference, ExternalReference};
+use crate::error::{AppError, AppResult};
+use crate::events::{
+    EventBus, ExternalMetadataFetched, ExternalMetadataLinked, ExternalMetadataRequested,
+};
+use crate::repositories::{AnimeRepository, ExternalReferenceRepository};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::domain::{ExternalReference, validate_external_reference};
-use crate::repositories::{ExternalReferenceRepository, AnimeRepository};
-use crate::events::{EventBus, ExternalMetadataRequested, ExternalMetadataFetched, ExternalMetadataLinked};
-use crate::error::{AppError, AppResult};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalMetadata {
@@ -79,8 +81,7 @@ impl ExternalIntegrationService {
             request.external_id.clone(),
         );
 
-        validate_external_reference(&reference)
-            .map_err(AppError::Domain)?;
+        validate_external_reference(&reference).map_err(AppError::Domain)?;
 
         self.external_ref_repo.save(&reference)?;
 
@@ -93,7 +94,11 @@ impl ExternalIntegrationService {
         Ok(())
     }
 
-    pub fn search_external(&self, _provider: &str, _query: &str) -> AppResult<Vec<ExternalMetadata>> {
+    pub fn search_external(
+        &self,
+        _provider: &str,
+        _query: &str,
+    ) -> AppResult<Vec<ExternalMetadata>> {
         let results: Vec<ExternalMetadata> = Vec::new();
         Ok(results)
     }
@@ -103,11 +108,13 @@ impl ExternalIntegrationService {
         anime_id: Uuid,
         provider: &str,
     ) -> AppResult<ExternalMetadata> {
-        let anime = self.anime_repo
+        let anime = self
+            .anime_repo
             .get_by_id(anime_id)?
             .ok_or(AppError::NotFound)?;
 
-        let reference = self.external_ref_repo
+        let reference = self
+            .external_ref_repo
             .get_by_anime_and_source(anime_id, provider)?
             .ok_or_else(|| AppError::Other("No external reference found".to_string()))?;
 

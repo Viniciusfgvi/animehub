@@ -4,58 +4,82 @@
 //
 // CRITICAL: EventHandler is INTERNAL and must NOT be exported
 
-pub mod types;
+// ============================================================================
+// EXISTING EVENT INFRASTRUCTURE (SEALED - Phase 3)
+// ============================================================================
+
 pub mod bus;
-pub mod handlers;
+pub mod types;
+
+// ============================================================================
+// RESOLUTION EVENTS (FROZEN - Phase 4)
+// ============================================================================
+
 pub mod resolution_events;
+
+// ============================================================================
+// MATERIALIZATION (NEW - Phase 5)
+// ============================================================================
+
+pub mod handlers;
+pub mod materialization_events;
 
 // ============================================================================
 // PUBLIC EXPORTS - Event Types and Bus Only
 // ============================================================================
 
+pub use types::DomainEvent;
+
 pub use types::{
-    DomainEvent,
-    
-    // File scanning
-    DirectoryScanned,
-    FileDetected,
-    
     // Anime
     AnimeCreated,
-    AnimeUpdated,
     AnimeMerged,
-    
+
+    AnimeUpdated,
+    // File scanning
+    DirectoryScanned,
+    EpisodeBecamePlayable,
+    EpisodeCompleted,
+
     // Episode
     EpisodeCreated,
-    FileLinkedToEpisode,
-    EpisodeBecamePlayable,
     EpisodeProgressUpdated,
-    EpisodeCompleted,
-    
+    ExternalMetadataFetched,
+    ExternalMetadataLinked,
+    // External
+    ExternalMetadataRequested,
+    FileDetected,
+
+    FileLinkedToEpisode,
+    PlaybackFinished,
+
+    PlaybackProgressUpdated,
     // Playback
     PlaybackStarted,
-    PlaybackProgressUpdated,
     PlaybackStopped,
-    
+    // Statistics
+    StatisticsRebuilt,
+    StatisticsUpdated,
+
     // Subtitle
     SubtitleDetected,
     SubtitleStyleApplied,
     SubtitleTimingAdjusted,
     SubtitleVersionCreated,
-    
-    // Statistics
-    StatisticsRebuilt,
-    StatisticsUpdated,
-    
-    // External
-    ExternalMetadataRequested,
-    ExternalMetadataFetched,
-    ExternalMetadataLinked,
 };
 
 pub use bus::{EventBus, EventLogEntry};
 
-pub use resolution_events::*;
+// Resolution events (Phase 4 - frozen)
+pub use resolution_events::{
+    EpisodeResolved, FileResolved, ResolutionBatchCompleted, ResolutionFailed,
+};
+
+// Materialization events (Phase 5)
+pub use materialization_events::{MaterializationBatchCompleted, MaterializationRecordCreated};
+
+// Materialization handler registration (Phase 5)
+pub use handlers::register_materialization_handlers;
 
 // ============================================================================
 // INTERNAL ONLY - DO NOT EXPORT

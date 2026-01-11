@@ -9,28 +9,28 @@ use uuid::Uuid;
 pub struct File {
     /// Internal immutable identifier
     pub id: Uuid,
-    
+
     /// Absolute path to the file
     pub caminho_absoluto: PathBuf,
-    
+
     /// Type of file
     pub tipo: FileType,
-    
+
     /// File size in bytes
     pub tamanho: u64,
-    
+
     /// SHA256 hash (optional, computed on demand)
     pub hash: Option<String>,
-    
+
     /// Last modification timestamp from filesystem
     pub data_modificacao: DateTime<Utc>,
-    
+
     /// How this file was discovered
     pub origem: FileOrigin,
-    
+
     /// Creation timestamp in our database
     pub criado_em: DateTime<Utc>,
-    
+
     /// Last update timestamp in our database
     pub atualizado_em: DateTime<Utc>,
 }
@@ -51,10 +51,10 @@ pub enum FileType {
 pub enum FileOrigin {
     /// Discovered via directory scan
     Scan,
-    
+
     /// Explicitly imported by user
     Importacao,
-    
+
     /// Manually added
     Manual,
 }
@@ -81,27 +81,23 @@ impl File {
             atualizado_em: now,
         }
     }
-    
+
     /// Update file metadata (size, modification date)
     /// This is called when the file changes on disk
-    pub fn update_metadata(
-        &mut self,
-        tamanho: u64,
-        data_modificacao: DateTime<Utc>,
-    ) {
+    pub fn update_metadata(&mut self, tamanho: u64, data_modificacao: DateTime<Utc>) {
         self.tamanho = tamanho;
         self.data_modificacao = data_modificacao;
         // Hash is invalidated when file changes
         self.hash = None;
         self.atualizado_em = Utc::now();
     }
-    
+
     /// Set the hash after computation
     pub fn set_hash(&mut self, hash: String) {
         self.hash = Some(hash);
         self.atualizado_em = Utc::now();
     }
-    
+
     /// Check if file likely changed based on metadata
     pub fn has_changed(&self, tamanho: u64, data_modificacao: DateTime<Utc>) -> bool {
         self.tamanho != tamanho || self.data_modificacao != data_modificacao

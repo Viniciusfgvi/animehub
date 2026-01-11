@@ -1,12 +1,16 @@
 // src-tauri/src/services/subtitle_service.rs
-use std::sync::Arc;
-use std::path::{Path, PathBuf};
-use uuid::Uuid;
 use crate::domain::subtitle::{SubtitleFormat, SubtitleTransformation, TransformationType};
-use crate::repositories::{SubtitleRepository, FileRepository};
-use crate::events::{EventBus, SubtitleStyleApplied, SubtitleTimingAdjusted, SubtitleVersionCreated};
-use crate::infrastructure::subtitle_workspace::{SubtitleWorkspace, SubtitleWorkspaceCreated, SubtitleWorkspaceCleaned};
 use crate::error::{AppError, AppResult};
+use crate::events::{
+    EventBus, SubtitleStyleApplied, SubtitleTimingAdjusted, SubtitleVersionCreated,
+};
+use crate::infrastructure::subtitle_workspace::{
+    SubtitleWorkspace, SubtitleWorkspaceCleaned, SubtitleWorkspaceCreated,
+};
+use crate::repositories::{FileRepository, SubtitleRepository};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct StyleTransformRequest {
@@ -56,8 +60,9 @@ impl SubtitleService {
             params,
             |path, format| self.apply_style_to_file(path, format, &request),
             |original_id, new_id| {
-                self.event_bus.emit(SubtitleStyleApplied::new(original_id, new_id));
-            }
+                self.event_bus
+                    .emit(SubtitleStyleApplied::new(original_id, new_id));
+            },
         )
     }
 
@@ -69,12 +74,19 @@ impl SubtitleService {
             params,
             |path, format| self.apply_timing_to_file(path, format, request.offset_ms),
             |original_id, new_id| {
-                self.event_bus.emit(SubtitleTimingAdjusted::new(original_id, new_id, request.offset_ms));
-            }
+                self.event_bus.emit(SubtitleTimingAdjusted::new(
+                    original_id,
+                    new_id,
+                    request.offset_ms,
+                ));
+            },
         )
     }
 
-    pub fn get_transformation_history(&self, subtitle_id: Uuid) -> AppResult<Vec<SubtitleTransformation>> {
+    pub fn get_transformation_history(
+        &self,
+        subtitle_id: Uuid,
+    ) -> AppResult<Vec<SubtitleTransformation>> {
         self.subtitle_repo.get_transformations(subtitle_id)
     }
 
@@ -85,25 +97,29 @@ impl SubtitleService {
         params: serde_json::Value,
         transform_fn: F,
         emit_custom_event: E,
-    ) -> AppResult<Uuid> 
-    where 
+    ) -> AppResult<Uuid>
+    where
         F: FnOnce(&Path, &SubtitleFormat) -> AppResult<()>,
         E: FnOnce(Uuid, Uuid),
     {
-        let original = self.subtitle_repo
+        let original = self
+            .subtitle_repo
             .get_subtitle_by_id(subtitle_id)?
             .ok_or(AppError::NotFound)?;
 
-        let original_file = self.file_repo
+        let original_file = self
+            .file_repo
             .get_by_id(original.file_id)?
             .ok_or(AppError::NotFound)?;
 
         let mut workspace = SubtitleWorkspace::new(original_file.caminho_absoluto.clone())?;
-        self.event_bus.emit(SubtitleWorkspaceCreated::new(workspace.id, original.id));
+        self.event_bus
+            .emit(SubtitleWorkspaceCreated::new(workspace.id, original.id));
 
         transform_fn(workspace.working_file_path(), &original.formato)?;
 
-        let new_file_path = self.generate_versioned_path(&original_file.caminho_absoluto, original.versao + 1);
+        let new_file_path =
+            self.generate_versioned_path(&original_file.caminho_absoluto, original.versao + 1);
         workspace.copy_working_file_to(&new_file_path)?;
 
         let file_metadata = std::fs::metadata(&new_file_path)?;
@@ -111,7 +127,11 @@ impl SubtitleService {
             new_file_path,
             crate::domain::file::FileType::Legenda,
             file_metadata.len(),
-            chrono::DateTime::from(file_metadata.modified().unwrap_or(std::time::SystemTime::now())),
+            chrono::DateTime::from(
+                file_metadata
+                    .modified()
+                    .unwrap_or(std::time::SystemTime::now()),
+            ),
             crate::domain::file::FileOrigin::Manual,
         );
 
@@ -124,31 +144,53 @@ impl SubtitleService {
         self.subtitle_repo.save_transformation(&transformation)?;
 
         emit_custom_event(original.id, new_subtitle.id);
-        self.event_bus.emit(SubtitleVersionCreated::new(new_subtitle.id, new_subtitle.versao));
+        self.event_bus.emit(SubtitleVersionCreated::new(
+            new_subtitle.id,
+            new_subtitle.versao,
+        ));
 
         workspace.cleanup()?;
-        self.event_bus.emit(SubtitleWorkspaceCleaned::new(workspace.id));
+        self.event_bus
+            .emit(SubtitleWorkspaceCleaned::new(workspace.id));
 
         Ok(new_subtitle.id)
     }
 
-    fn apply_style_to_file(&self, file_path: &Path, format: &SubtitleFormat, request: &StyleTransformRequest) -> AppResult<()> {
+    fn apply_style_to_file(
+        &self,
+        file_path: &Path,
+        format: &SubtitleFormat,
+        request: &StyleTransformRequest,
+    ) -> AppResult<()> {
         match format {
             SubtitleFormat::ASS => self.apply_style_to_ass(file_path, request),
             _ => Ok(()),
         }
     }
 
-    fn apply_timing_to_file(&self, file_path: &Path, format: &SubtitleFormat, offset_ms: i64) -> AppResult<()> {
+    fn apply_timing_to_file(
+        &self,
+        file_path: &Path,
+        format: &SubtitleFormat,
+        offset_ms: i64,
+    ) -> AppResult<()> {
         match format {
             SubtitleFormat::ASS => self.apply_timing_to_ass(file_path, offset_ms),
-            SubtitleFormat::SRT | SubtitleFormat::VTT => self.apply_timing_to_srt(file_path, offset_ms),
+            SubtitleFormat::SRT | SubtitleFormat::VTT => {
+                self.apply_timing_to_srt(file_path, offset_ms)
+            }
         }
     }
 
     fn generate_versioned_path(&self, original: &PathBuf, version: u32) -> PathBuf {
-        let stem = original.file_stem().and_then(|s| s.to_str()).unwrap_or("subtitle");
-        let ext = original.extension().and_then(|e| e.to_str()).unwrap_or("srt");
+        let stem = original
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("subtitle");
+        let ext = original
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("srt");
         let parent = original.parent().unwrap_or(Path::new("."));
         parent.join(format!("{}.v{}.{}", stem, version, ext))
     }
@@ -184,6 +226,10 @@ impl SubtitleService {
         Ok(())
     }
 
-    fn apply_timing_to_ass(&self, _path: &Path, _offset_ms: i64) -> AppResult<()> { Ok(()) }
-    fn apply_timing_to_srt(&self, _path: &Path, _offset_ms: i64) -> AppResult<()> { Ok(()) }
+    fn apply_timing_to_ass(&self, _path: &Path, _offset_ms: i64) -> AppResult<()> {
+        Ok(())
+    }
+    fn apply_timing_to_srt(&self, _path: &Path, _offset_ms: i64) -> AppResult<()> {
+        Ok(())
+    }
 }

@@ -1,11 +1,11 @@
 // src-tauri/src/services/anime_service.rs
+use crate::domain::anime::{validate_anime, Anime, AnimeStatus, AnimeType};
+use crate::error::{AppError, AppResult};
+use crate::events::{AnimeCreated, AnimeMerged, AnimeUpdated, EventBus};
+use crate::repositories::{AnimeAliasRepository, AnimeRepository, ExternalReferenceRepository};
+use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use crate::domain::anime::{Anime, AnimeType, AnimeStatus, validate_anime};
-use crate::repositories::{AnimeRepository, AnimeAliasRepository, ExternalReferenceRepository};
-use crate::events::{EventBus, AnimeCreated, AnimeUpdated, AnimeMerged};
-use crate::error::{AppError, AppResult};
 
 #[derive(Debug, Clone)]
 pub struct CreateAnimeRequest {
@@ -62,7 +62,7 @@ impl AnimeService {
 
     pub fn create_anime(&self, request: CreateAnimeRequest) -> AppResult<Uuid> {
         let mut anime = Anime::new(request.titulo_principal, request.tipo);
-        
+
         anime.update_metadata(
             None,
             Some(request.titulos_alternativos),
@@ -87,7 +87,8 @@ impl AnimeService {
     }
 
     pub fn update_anime(&self, request: UpdateAnimeRequest) -> AppResult<()> {
-        let mut anime = self.anime_repo
+        let mut anime = self
+            .anime_repo
             .get_by_id(request.anime_id)?
             .ok_or(AppError::NotFound)?;
 
@@ -118,17 +119,17 @@ impl AnimeService {
     }
 
     pub fn merge_animes(&self, request: MergeAnimesRequest) -> AppResult<()> {
-        let principal = self.anime_repo
+        let principal = self
+            .anime_repo
             .get_by_id(request.principal_anime_id)?
             .ok_or(AppError::NotFound)?;
-        let to_merge = self.anime_repo
+        let to_merge = self
+            .anime_repo
             .get_by_id(request.anime_to_merge_id)?
             .ok_or(AppError::NotFound)?;
 
-        let alias = crate::domain::AnimeAlias::new(
-            principal.id,
-            to_merge.id,
-        ).map_err(AppError::Other)?;
+        let alias =
+            crate::domain::AnimeAlias::new(principal.id, to_merge.id).map_err(AppError::Other)?;
 
         self.alias_repo.save(&alias)?;
 
@@ -148,7 +149,10 @@ impl AnimeService {
         }
     }
 
-    pub fn get_external_references(&self, anime_id: Uuid) -> AppResult<Vec<crate::domain::ExternalReference>> {
+    pub fn get_external_references(
+        &self,
+        anime_id: Uuid,
+    ) -> AppResult<Vec<crate::domain::ExternalReference>> {
         self.external_ref_repo.list_by_anime(anime_id)
     }
 }

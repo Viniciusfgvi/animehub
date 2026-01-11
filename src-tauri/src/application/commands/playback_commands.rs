@@ -10,7 +10,7 @@ use crate::services::{PlaybackService, StartPlaybackRequest};
 pub async fn start_playback(
     state: State<'_, AppState>,
     episode_id: Uuid,
-    file_id: Option<Uuid>,
+    file_id: Uuid,
 ) -> Result<String, String> {
     let playback_service: std::sync::Arc<PlaybackService> = state.playback_service.clone();
 
@@ -30,9 +30,7 @@ pub async fn start_playback(
 pub async fn toggle_pause_playback(state: State<'_, AppState>) -> Result<(), String> {
     let playback_service: std::sync::Arc<PlaybackService> = state.playback_service.clone();
 
-    playback_service
-        .toggle_pause()
-        .map_err(|e| e.to_string())
+    playback_service.toggle_pause().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -49,10 +47,7 @@ pub async fn seek_playback(
 }
 
 #[tauri::command]
-pub async fn stop_playback(
-    state: State<'_, AppState>,
-    episode_id: Uuid,
-) -> Result<(), String> {
+pub async fn stop_playback(state: State<'_, AppState>, episode_id: Uuid) -> Result<(), String> {
     let playback_service: std::sync::Arc<PlaybackService> = state.playback_service.clone();
 
     playback_service

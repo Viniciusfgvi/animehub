@@ -8,28 +8,28 @@ use uuid::Uuid;
 pub struct Episode {
     /// Internal immutable identifier
     pub id: Uuid,
-    
+
     /// Reference to parent Anime (REQUIRED)
     pub anime_id: Uuid,
-    
+
     /// Episode number (regular or special)
     pub numero: EpisodeNumber,
-    
+
     /// Episode title (optional)
     pub titulo: Option<String>,
-    
+
     /// Expected duration in seconds (optional)
     pub duracao_esperada: Option<u64>,
-    
+
     /// Current playback progress in seconds
     pub progresso_atual: u64,
-    
+
     /// Viewing state
     pub estado: EpisodeState,
-    
+
     /// Creation timestamp
     pub criado_em: DateTime<Utc>,
-    
+
     /// Last update timestamp
     pub atualizado_em: DateTime<Utc>,
 }
@@ -68,7 +68,7 @@ impl Episode {
             atualizado_em: now,
         }
     }
-    
+
     /// Update episode metadata
     pub fn update_metadata(
         &mut self,
@@ -83,7 +83,7 @@ impl Episode {
         }
         self.atualizado_em = Utc::now();
     }
-    
+
     /// Update progress
     /// Returns error if progress violates invariants
     pub fn update_progress(&mut self, progresso: u64) -> Result<(), String> {
@@ -91,25 +91,23 @@ impl Episode {
         if let Some(duracao) = self.duracao_esperada {
             if progresso > duracao {
                 return Err(format!(
-                    "Progress {} exceeds duration {}", 
-                    progresso, 
-                    duracao
+                    "Progress {} exceeds duration {}",
+                    progresso, duracao
                 ));
             }
         }
-        
+
         // Progress should not decrease (except explicit reset)
         if progresso < self.progresso_atual && progresso != 0 {
             // Allow reset to 0, but not arbitrary decreases
             return Err(format!(
                 "Progress cannot decrease from {} to {} (use reset if intentional)",
-                self.progresso_atual,
-                progresso
+                self.progresso_atual, progresso
             ));
         }
-        
+
         self.progresso_atual = progresso;
-        
+
         // Update state based on progress
         self.estado = if progresso == 0 {
             EpisodeState::NaoVisto
@@ -122,11 +120,11 @@ impl Episode {
         } else {
             EpisodeState::EmProgresso
         };
-        
+
         self.atualizado_em = Utc::now();
         Ok(())
     }
-    
+
     /// Mark as completed
     pub fn mark_completed(&mut self) {
         self.estado = EpisodeState::Concluido;
@@ -135,7 +133,7 @@ impl Episode {
         }
         self.atualizado_em = Utc::now();
     }
-    
+
     /// Reset progress
     pub fn reset_progress(&mut self) {
         self.progresso_atual = 0;
@@ -148,7 +146,7 @@ impl EpisodeNumber {
     pub fn regular(numero: u32) -> Self {
         Self::Regular { numero }
     }
-    
+
     pub fn special(label: String) -> Self {
         Self::Special { label }
     }

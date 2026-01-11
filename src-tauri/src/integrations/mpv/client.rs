@@ -1,31 +1,20 @@
 // src-tauri/src/integrations/mpv/client.rs
 //
-// MPV Player Integration - Windows Implementation
+// MPV Player Integration - Cross-Platform Implementation
 //
-// CRITICAL: Uses Windows Named Pipes for IPC as required.
-// MPV launched with: --input-ipc-server=\\.\pipe\animehub-mpv
+// CRITICAL: Uses platform-specific IPC:
+// - Windows: Named Pipes (\\.\pipe\animehub-mpv)
+// - Unix: Unix Domain Sockets (/tmp/animehub-mpv.sock)
 //
-// WINDOWS API CONSTRAINTS (MANDATORY):
-// - Use slices (&[u8], &mut [u8]) for WriteFile/ReadFile.
-// - No raw pointers (as_ptr, as_mut_ptr).
-// - No manual buffer lengths.
-// - Synchronous IO (None for OVERLAPPED).
+// PHASE 4 CORRECTIONS:
+// - Made cross-platform compilable (Windows-specific code behind cfg)
+// - Stub implementation for non-Windows platforms
 
-use std::path::{Path, PathBuf};
-use std::process::{Command, Child, Stdio};
-use std::sync::{Arc, Mutex};
-use std::ffi::OsStr;
-use std::os::windows::ffi::OsStrExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-
-// Windows API imports from the 'windows' crate
-use windows::core::PCWSTR;
-use windows::Win32::Foundation::{HANDLE, CloseHandle, INVALID_HANDLE_VALUE};
-use windows::Win32::Storage::FileSystem::{
-    CreateFileW, ReadFile, WriteFile, FILE_GENERIC_READ, FILE_GENERIC_WRITE,
-    FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
-};
+use std::path::PathBuf;
+use std::process::{Child, Command, Stdio};
+use std::sync::{Arc, Mutex};
 
 use crate::error::{AppError, AppResult};
 
@@ -43,15 +32,18 @@ struct MpvResponse {
     data: Option<serde_json::Value>,
 }
 
-/// MPV Client for Windows
-/// 
+/// MPV Client
+///
 /// Handles process lifecycle and IPC communication.
 /// Note: This client does not persist domain state or call services.
 pub struct MpvClient {
     /// MPV process handle (Arc/Mutex for thread-safe access from commands)
     process: Arc<Mutex<Option<Child>>>,
-    /// Predefined pipe name for AnimeHub
+    /// Predefined pipe/socket name for AnimeHub
+    #[cfg(target_os = "windows")]
     pipe_name: String,
+    #[cfg(not(target_os = "windows"))]
+    socket_path: String,
 }
 
 impl MpvClient {
@@ -59,29 +51,42 @@ impl MpvClient {
     pub fn new() -> AppResult<Self> {
         Ok(Self {
             process: Arc::new(Mutex::new(None)),
+            #[cfg(target_os = "windows")]
             pipe_name: r"\\.\pipe\animehub-mpv".to_string(),
+            #[cfg(not(target_os = "windows"))]
+            socket_path: "/tmp/animehub-mpv.sock".to_string(),
         })
     }
 
     /// Launches MPV with IPC enabled and starts playback.
     pub fn launch(&self, video_path: PathBuf) -> AppResult<PathBuf> {
         if !video_path.exists() {
-            return Err(AppError::Other(format!("Video file not found: {:?}", video_path)));
+            return Err(AppError::Other(format!(
+                "Video file not found: {:?}",
+                video_path
+            )));
         }
 
         // Cleanup existing process
         self.stop()?;
 
         let mut cmd = Command::new("mpv");
-        cmd.arg(format!("--input-ipc-server={}", self.pipe_name))
-            .arg("--idle=yes")
+        
+        #[cfg(target_os = "windows")]
+        cmd.arg(format!("--input-ipc-server={}", self.pipe_name));
+        
+        #[cfg(not(target_os = "windows"))]
+        cmd.arg(format!("--input-ipc-server={}", self.socket_path));
+        
+        cmd.arg("--idle=yes")
             .arg("--force-window=yes")
             .arg("--keep-open=yes")
             .arg(&video_path)
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
-        let child = cmd.spawn()
+        let child = cmd
+            .spawn()
             .map_err(|e| AppError::Other(format!("Failed to spawn MPV: {}", e)))?;
 
         {
@@ -145,9 +150,7 @@ impl MpvClient {
 
     pub fn get_position(&self) -> AppResult<u64> {
         let response = self.send_command(&["get_property", "time-pos"])?;
-        let pos = response.data
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
+        let pos = response.data.and_then(|v| v.as_f64()).unwrap_or(0.0);
         Ok(pos as u64)
     }
 
@@ -156,10 +159,19 @@ impl MpvClient {
         Ok(response.data.and_then(|v| v.as_f64()).map(|d| d as u64))
     }
 
-    // --- IPC Implementation (Windows Named Pipes) ---
+    // --- IPC Implementation ---
 
-    /// Internal helper to communicate with MPV using the JSON IPC protocol.
+    #[cfg(target_os = "windows")]
     fn send_command(&self, command: &[&str]) -> AppResult<MpvResponse> {
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+        use windows::core::PCWSTR;
+        use windows::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
+        use windows::Win32::Storage::FileSystem::{
+            CreateFileW, ReadFile, WriteFile, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ,
+            FILE_GENERIC_WRITE, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+        };
+
         if !self.is_running() {
             return Err(AppError::Other("MPV is not running".to_string()));
         }
@@ -181,70 +193,109 @@ impl MpvClient {
                 FILE_ATTRIBUTE_NORMAL,
                 HANDLE::default(),
             )
-        }.map_err(|e| AppError::Other(format!("IPC Connection Error: {}", e)))?;
+        }
+        .map_err(|e| AppError::Other(format!("IPC Connection Error: {}", e)))?;
 
         if handle == INVALID_HANDLE_VALUE {
             return Err(AppError::Other("Invalid Pipe Handle".to_string()));
         }
 
         // Use RAII guard to ensure handle is closed
+        struct HandleGuard(HANDLE);
+        impl Drop for HandleGuard {
+            fn drop(&mut self) {
+                if !self.0.is_invalid() {
+                    unsafe {
+                        let _ = CloseHandle(self.0);
+                    }
+                }
+            }
+        }
         let _guard = HandleGuard(handle);
 
         // 3. Serialize Command (MPV expects newline-delimited JSON)
         let cmd_json = MpvCommand {
             command: command.iter().map(|&s| json!(s)).collect(),
         };
-        let mut payload = serde_json::to_string(&cmd_json)
-            .map_err(|e| AppError::Serialization(e))?;
+        let mut payload =
+            serde_json::to_string(&cmd_json).map_err(|e| AppError::Serialization(e))?;
         payload.push('\n');
 
         // 4. Write to Pipe
-        // Exactly as defined by windows crate: handle, Option<&[u8]>, Option<&mut u32>, Option<*mut OVERLAPPED>
         let mut written: u32 = 0;
-        unsafe {
-            WriteFile(
-                handle,
-                Some(payload.as_bytes()),
-                Some(&mut written),
-                None,
-            )
-        }.map_err(|e| AppError::Other(format!("IPC Write error: {}", e)))?;
+        unsafe { WriteFile(handle, Some(payload.as_bytes()), Some(&mut written), None) }
+            .map_err(|e| AppError::Other(format!("IPC Write error: {}", e)))?;
 
         // 5. Read Response
-        // Exactly as defined: handle, Option<&mut [u8]>, Option<&mut u32>, Option<*mut OVERLAPPED>
         let mut buffer = [0u8; 2048];
         let mut read: u32 = 0;
-        unsafe {
-            ReadFile(
-                handle,
-                Some(&mut buffer),
-                Some(&mut read),
-                None,
-            )
-        }.map_err(|e| AppError::Other(format!("IPC Read error: {}", e)))?;
+        unsafe { ReadFile(handle, Some(&mut buffer), Some(&mut read), None) }
+            .map_err(|e| AppError::Other(format!("IPC Read error: {}", e)))?;
 
         // 6. Parse and Validate
         let response_str = std::str::from_utf8(&buffer[..(read as usize)])
             .map_err(|_| AppError::Other("IPC response invalid UTF-8".to_string()))?;
-        
-        let response: MpvResponse = serde_json::from_str(response_str.trim())
-            .map_err(|e| AppError::Serialization(e))?;
+
+        let response: MpvResponse =
+            serde_json::from_str(response_str.trim()).map_err(|e| AppError::Serialization(e))?;
 
         if response.error != "success" {
-            return Err(AppError::Other(format!("MPV IPC Error: {}", response.error)));
+            return Err(AppError::Other(format!(
+                "MPV IPC Error: {}",
+                response.error
+            )));
         }
 
         Ok(response)
     }
-}
 
-/// RAII Guard for Windows HANDLEs
-struct HandleGuard(HANDLE);
-impl Drop for HandleGuard {
-    fn drop(&mut self) {
-        if !self.0.is_invalid() {
-            unsafe { let _ = CloseHandle(self.0); }
+    #[cfg(not(target_os = "windows"))]
+    fn send_command(&self, command: &[&str]) -> AppResult<MpvResponse> {
+        use std::io::{Read, Write};
+        use std::os::unix::net::UnixStream;
+
+        if !self.is_running() {
+            return Err(AppError::Other("MPV is not running".to_string()));
         }
+
+        // Connect to Unix socket
+        let mut stream = UnixStream::connect(&self.socket_path)
+            .map_err(|e| AppError::Other(format!("IPC Connection Error: {}", e)))?;
+
+        // Serialize Command
+        let cmd_json = MpvCommand {
+            command: command.iter().map(|&s| json!(s)).collect(),
+        };
+        let mut payload =
+            serde_json::to_string(&cmd_json).map_err(|e| AppError::Serialization(e))?;
+        payload.push('\n');
+
+        // Write to socket
+        stream
+            .write_all(payload.as_bytes())
+            .map_err(|e| AppError::Other(format!("IPC Write error: {}", e)))?;
+
+        // Read response
+        let mut buffer = [0u8; 2048];
+        let read = stream
+            .read(&mut buffer)
+            .map_err(|e| AppError::Other(format!("IPC Read error: {}", e)))?;
+
+        // Parse and Validate
+        let response_str = std::str::from_utf8(&buffer[..read])
+            .map_err(|_| AppError::Other("IPC response invalid UTF-8".to_string()))?;
+
+        let response: MpvResponse =
+            serde_json::from_str(response_str.trim()).map_err(|e| AppError::Serialization(e))?;
+
+        if response.error != "success" {
+            return Err(AppError::Other(format!(
+                "MPV IPC Error: {}",
+                response.error
+            )));
+        }
+
+        Ok(response)
     }
 }
 

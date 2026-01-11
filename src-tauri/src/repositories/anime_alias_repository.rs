@@ -1,9 +1,9 @@
 // src-tauri/src/repositories/anime_alias_repository.rs
 
-use std::sync::Arc;
-use rusqlite::params;
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use rusqlite::params;
+use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::db::ConnectionPool;
 use crate::domain::AnimeAlias;
@@ -28,7 +28,7 @@ impl SqliteAnimeAliasRepository {
 impl AnimeAliasRepository for SqliteAnimeAliasRepository {
     fn save(&self, alias: &AnimeAlias) -> AppResult<()> {
         let conn = self.pool.get()?;
-        
+
         conn.execute(
             "INSERT OR REPLACE INTO anime_aliases (id, anime_principal_id, anime_alias_id, criado_em)
              VALUES (?1, ?2, ?3, ?4)",
@@ -39,17 +39,16 @@ impl AnimeAliasRepository for SqliteAnimeAliasRepository {
                 alias.criado_em.to_rfc3339(),
             ]
         )?;
-        
+
         Ok(())
     }
-    
+
     fn get_principal_for_alias(&self, anime_alias_id: Uuid) -> AppResult<Option<Uuid>> {
         let conn = self.pool.get()?;
-        
-        let mut stmt = conn.prepare(
-            "SELECT anime_principal_id FROM anime_aliases WHERE anime_alias_id = ?1"
-        )?;
-        
+
+        let mut stmt =
+            conn.prepare("SELECT anime_principal_id FROM anime_aliases WHERE anime_alias_id = ?1")?;
+
         match stmt.query_row(params![anime_alias_id.to_string()], |row| {
             let id_str: String = row.get(0)?;
             Ok(id_str)
@@ -59,19 +58,18 @@ impl AnimeAliasRepository for SqliteAnimeAliasRepository {
             Err(e) => Err(AppError::Database(e)),
         }
     }
-    
+
     fn list_aliases_for_principal(&self, anime_principal_id: Uuid) -> AppResult<Vec<AnimeAlias>> {
         let conn = self.pool.get()?;
-        
+
         let mut stmt = conn.prepare(
             "SELECT id, anime_principal_id, anime_alias_id, criado_em 
              FROM anime_aliases 
-             WHERE anime_principal_id = ?1"
+             WHERE anime_principal_id = ?1",
         )?;
-        
-        let aliases: Vec<AnimeAlias> = stmt.query_map(
-            params![anime_principal_id.to_string()],
-            |row| {
+
+        let aliases: Vec<AnimeAlias> = stmt
+            .query_map(params![anime_principal_id.to_string()], |row| {
                 let id = Uuid::parse_str(&row.get::<_, String>(0)?)
                     .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
                 let principal_id = Uuid::parse_str(&row.get::<_, String>(1)?)
@@ -81,17 +79,16 @@ impl AnimeAliasRepository for SqliteAnimeAliasRepository {
                 let criado_em = DateTime::parse_from_rfc3339(&row.get::<_, String>(3)?)
                     .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?
                     .with_timezone(&Utc);
-                
+
                 Ok(AnimeAlias {
                     id,
                     anime_principal_id: principal_id,
                     anime_alias_id: alias_id,
                     criado_em,
                 })
-            }
-        )?
-        .collect::<Result<Vec<_>, _>>()?;
-        
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(aliases)
     }
 }

@@ -8,5 +8,5 @@
 pub mod anilist;
 pub mod mpv;
 
-pub use anilist::client::{AniListClient, AniListAnime, AniListTitle, AniListDate};
+pub use anilist::client::{AniListAnime, AniListClient, AniListDate, AniListTitle};
 pub use mpv::client::MpvClient;

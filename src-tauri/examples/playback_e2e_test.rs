@@ -4,7 +4,7 @@
 //
 // PURPOSE:
 // - Validate that playback works after explicit domain resolution
-// - Flow: Scan → Create Anime (via service) → Create Episode (via service) → 
+// - Flow: Scan → Create Anime (via service) → Create Episode (via service) →
 //         Link File (via service) → Start Playback → Stop Playback
 // - Validate MPV opens and closes cleanly
 //
@@ -19,13 +19,13 @@
 // - No implicit inference from file names
 // - This is the canonical flow for playback
 
-use std::sync::Arc;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 
 use animehub::db::{create_connection_pool, initialize_database};
-use animehub::domain::anime::{AnimeType, AnimeStatus};
+use animehub::domain::anime::{AnimeStatus, AnimeType};
 use animehub::domain::episode::EpisodeNumber;
 use animehub::domain::file::FileType;
 use animehub::events::EventBus;
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. INFRASTRUCTURE BOOTSTRAP (same as main.rs)
     // =========================================================================
     println!("[SETUP] Bootstrapping infrastructure...");
-    
+
     let event_bus = Arc::new(EventBus::new());
     let pool = Arc::new(create_connection_pool()?);
     let mpv_client = Arc::new(MpvClient::new()?);
@@ -59,10 +59,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. REPOSITORIES
     // =========================================================================
     let anime_repo: Arc<dyn AnimeRepository> = Arc::new(SqliteAnimeRepository::new(pool.clone()));
-    let episode_repo: Arc<dyn EpisodeRepository> = Arc::new(SqliteEpisodeRepository::new(pool.clone()));
+    let episode_repo: Arc<dyn EpisodeRepository> =
+        Arc::new(SqliteEpisodeRepository::new(pool.clone()));
     let file_repo: Arc<dyn FileRepository> = Arc::new(SqliteFileRepository::new(pool.clone()));
-    let anime_alias_repo: Arc<dyn AnimeAliasRepository> = Arc::new(SqliteAnimeAliasRepository::new(pool.clone()));
-    let external_ref_repo: Arc<dyn ExternalReferenceRepository> = Arc::new(SqliteExternalReferenceRepository::new(pool.clone()));
+    let anime_alias_repo: Arc<dyn AnimeAliasRepository> =
+        Arc::new(SqliteAnimeAliasRepository::new(pool.clone()));
+    let external_ref_repo: Arc<dyn ExternalReferenceRepository> =
+        Arc::new(SqliteExternalReferenceRepository::new(pool.clone()));
 
     // =========================================================================
     // 3. SERVICES
@@ -122,18 +125,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 5. STEP 1: SCAN DIRECTORY (to register the file)
     // =========================================================================
     println!("[STEP 1] Scanning directory to register file...");
-    
-    let parent_dir = video_path.parent()
+
+    let parent_dir = video_path
+        .parent()
         .ok_or("Cannot get parent directory")?
         .to_path_buf();
-    
+
     let files_found = file_service.scan_directory(parent_dir)?;
     println!("[STEP 1] Files found: {}", files_found);
 
     // Retrieve the file entity by path
-    let file = file_repo.get_by_path(&video_path)?
+    let file = file_repo
+        .get_by_path(&video_path.to_string_lossy())?
         .ok_or("File was not registered after scan")?;
-    
+
     if file.tipo != FileType::Video {
         eprintln!("[ERROR] File is not a video type: {:?}", file.tipo);
         std::process::exit(1);
@@ -146,7 +151,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 6. STEP 2: CREATE ANIME (via service)
     // =========================================================================
     println!("[STEP 2] Creating Anime via AnimeService...");
-    
+
     let create_anime_request = CreateAnimeRequest {
         titulo_principal: "Test Anime for Playback E2E".to_string(),
         titulos_alternativos: vec![],
@@ -166,7 +171,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 7. STEP 3: CREATE EPISODE (via service)
     // =========================================================================
     println!("[STEP 3] Creating Episode via EpisodeService...");
-    
+
     let create_episode_request = CreateEpisodeRequest {
         anime_id,
         numero: EpisodeNumber::Regular { numero: 1 },
@@ -182,11 +187,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 8. STEP 4: LINK FILE TO EPISODE (via service)
     // =========================================================================
     println!("[STEP 4] Linking File to Episode via EpisodeService...");
-    
+
+    // CORRECTED: LinkFileRequest no longer has is_primary field
+    // is_primary is determined from file type in the service
     let link_request = LinkFileRequest {
         episode_id,
         file_id: file.id,
-        is_primary: true,
     };
 
     episode_service.link_file(link_request)?;
@@ -200,9 +206,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("--- Events will be printed below ---");
     println!();
 
+    // CORRECTED: file_id is now required (not Option)
     let playback_request = StartPlaybackRequest {
         episode_id,
-        file_id: Some(file.id),
+        file_id: file.id,
     };
 
     let played_path = playback_service.start_playback(playback_request)?;
@@ -223,9 +230,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 11. STEP 7: STOP PLAYBACK (via service)
     // =========================================================================
     println!("[STEP 7] Stopping playback via PlaybackService...");
-    
+
     playback_service.stop_playback(episode_id)?;
-    
+
     println!("[STEP 7] Playback stopped.");
     println!();
 

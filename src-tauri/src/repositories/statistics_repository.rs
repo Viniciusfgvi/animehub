@@ -1,9 +1,9 @@
 // src-tauri/src/repositories/statistics_repository.rs
 
-use std::sync::Arc;
-use rusqlite::{params, Row};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use rusqlite::{params, Row};
+use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::db::ConnectionPool;
 use crate::domain::statistics::{StatisticsSnapshot, StatisticsType};
@@ -75,7 +75,7 @@ impl StatisticsRepository for SqliteStatisticsRepository {
     fn save_snapshot(&self, snap: &StatisticsSnapshot) -> AppResult<()> {
         let conn = self.pool.get()?;
         let valor_json = serde_json::to_string(&snap.valor)?;
-        
+
         conn.execute(
             "INSERT OR REPLACE INTO statistics_snapshots (id, tipo, valor, gerado_em)
              VALUES (?1, ?2, ?3, ?4)",
@@ -91,11 +91,11 @@ impl StatisticsRepository for SqliteStatisticsRepository {
 
     fn get_snapshot_by_type(&self, tipo: &str) -> AppResult<Option<StatisticsSnapshot>> {
         let conn = self.pool.get()?;
-        
+
         let mut stmt = conn.prepare(
-            "SELECT * FROM statistics_snapshots WHERE tipo = ?1 ORDER BY gerado_em DESC LIMIT 1"
+            "SELECT * FROM statistics_snapshots WHERE tipo = ?1 ORDER BY gerado_em DESC LIMIT 1",
         )?;
-        
+
         match stmt.query_row(params![tipo], Self::row_to_snapshot) {
             Ok(snap) => Ok(Some(snap)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -105,14 +105,14 @@ impl StatisticsRepository for SqliteStatisticsRepository {
 
     fn list_all_snapshots(&self) -> AppResult<Vec<StatisticsSnapshot>> {
         let conn = self.pool.get()?;
-        
-        let mut stmt = conn.prepare(
-            "SELECT * FROM statistics_snapshots ORDER BY gerado_em DESC"
-        )?;
-        
-        let snapshots: Vec<StatisticsSnapshot> = stmt.query_map([], Self::row_to_snapshot)?
+
+        let mut stmt =
+            conn.prepare("SELECT * FROM statistics_snapshots ORDER BY gerado_em DESC")?;
+
+        let snapshots: Vec<StatisticsSnapshot> = stmt
+            .query_map([], Self::row_to_snapshot)?
             .collect::<Result<Vec<_>, _>>()?;
-        
+
         Ok(snapshots)
     }
 

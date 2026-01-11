@@ -2,45 +2,21 @@
 //
 // Event Handlers - INTERNAL MODULE
 //
-// This module contains handler implementations but does NOT
-// export the EventHandler type (that stays internal to the bus)
-
-use crate::events::bus::EventBus;
-use crate::events::types::*;
-
-// ============================================================================
-// INTERNAL TRAIT (NOT EXPORTED)
-// ============================================================================
-
-// This trait is for internal organization only
-// It is NOT re-exported from this module
-trait RegisterHandler {
-    fn register(self, bus: &EventBus);
-}
+// This module contains handler implementations.
+// EventHandler type is internal to the bus module and NOT exported.
+//
+// Handlers use closure-based subscription via EventBus::subscribe.
 
 // ============================================================================
-// EXAMPLE HANDLERS (INTERNAL)
+// MATERIALIZATION HANDLERS (Phase 5)
 // ============================================================================
 
-// Example handler implementation
-// In production, these would be in services that subscribe to events
-pub struct LoggingHandler;
+pub mod materialization_handler;
 
-impl LoggingHandler {
-    pub fn new() -> Self {
-        Self
-    }
-    
-    pub fn handle_anime_created(&self, event: &AnimeCreated) {
-        println!("Anime Created: {} (ID: {})", event.titulo_principal, event.anime_id);
-    }
-    
-    pub fn register(&self, bus: &EventBus) {
-        let handler = Self;
-        bus.subscribe::<AnimeCreated, _>(move |event| {
-            handler.handle_anime_created(event);
-        });
-    }
-}
+// ============================================================================
+// PUBLIC EXPORTS
+// ============================================================================
 
-// More handlers will be added here as services are implemented
+// Only export the registration function, not handler structs
+// (handlers use closure-based subscription, not trait-based)
+pub use materialization_handler::register_materialization_handlers;

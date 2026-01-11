@@ -10,26 +10,27 @@ pub fn validate_file(file: &File) -> DomainResult<()> {
 /// Path must be absolute and non-empty
 fn validate_path(file: &File) -> DomainResult<()> {
     if !file.caminho_absoluto.is_absolute() {
-        return Err(DomainError::InvariantViolation(
-            format!("File path must be absolute: {:?}", file.caminho_absoluto)
-        ));
+        return Err(DomainError::InvariantViolation(format!(
+            "File path must be absolute: {:?}",
+            file.caminho_absoluto
+        )));
     }
-    
+
     if file.caminho_absoluto.as_os_str().is_empty() {
         return Err(DomainError::InvariantViolation(
-            "File path cannot be empty".to_string()
+            "File path cannot be empty".to_string(),
         ));
     }
-    
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::file::{File, FileType, FileOrigin};
-    use std::path::PathBuf;
+    use crate::domain::file::{File, FileOrigin, FileType};
     use chrono::Utc;
+    use std::path::PathBuf;
 
     #[test]
     fn test_valid_file() {
@@ -56,10 +57,10 @@ mod tests {
             Utc::now(),
             FileOrigin::Manual,
         );
-        
+
         let result = validate_file(&file);
         assert!(result.is_err());
-        
+
         if let Err(DomainError::InvariantViolation(msg)) = result {
             assert!(msg.contains("must be absolute"));
         } else {

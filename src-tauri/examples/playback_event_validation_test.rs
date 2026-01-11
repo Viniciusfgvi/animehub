@@ -18,17 +18,17 @@
 // - Handlers print event details to stdout
 // - EventBus::emit already prints "[EVENT] ..." lines (built-in)
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 
 use animehub::db::{create_connection_pool, initialize_database};
-use animehub::domain::anime::{AnimeType, AnimeStatus};
+use animehub::domain::anime::{AnimeStatus, AnimeType};
 use animehub::domain::episode::EpisodeNumber;
 use animehub::domain::file::FileType;
-use animehub::events::{EventBus, PlaybackStarted, PlaybackProgressUpdated, PlaybackStopped};
+use animehub::events::{EventBus, PlaybackProgressUpdated, PlaybackStarted, PlaybackStopped};
 use animehub::integrations::MpvClient;
 use animehub::repositories::*;
 use animehub::services::*;
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. INFRASTRUCTURE BOOTSTRAP
     // =========================================================================
     println!("[SETUP] Bootstrapping infrastructure...");
-    
+
     let event_bus = Arc::new(EventBus::new());
     let pool = Arc::new(create_connection_pool()?);
     let mpv_client = Arc::new(MpvClient::new()?);
@@ -57,10 +57,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. REPOSITORIES
     // =========================================================================
     let anime_repo: Arc<dyn AnimeRepository> = Arc::new(SqliteAnimeRepository::new(pool.clone()));
-    let episode_repo: Arc<dyn EpisodeRepository> = Arc::new(SqliteEpisodeRepository::new(pool.clone()));
+    let episode_repo: Arc<dyn EpisodeRepository> =
+        Arc::new(SqliteEpisodeRepository::new(pool.clone()));
     let file_repo: Arc<dyn FileRepository> = Arc::new(SqliteFileRepository::new(pool.clone()));
-    let anime_alias_repo: Arc<dyn AnimeAliasRepository> = Arc::new(SqliteAnimeAliasRepository::new(pool.clone()));
-    let external_ref_repo: Arc<dyn ExternalReferenceRepository> = Arc::new(SqliteExternalReferenceRepository::new(pool.clone()));
+    let anime_alias_repo: Arc<dyn AnimeAliasRepository> =
+        Arc::new(SqliteAnimeAliasRepository::new(pool.clone()));
+    let external_ref_repo: Arc<dyn ExternalReferenceRepository> =
+        Arc::new(SqliteExternalReferenceRepository::new(pool.clone()));
 
     // =========================================================================
     // 3. SERVICES
@@ -130,7 +133,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             counter.fetch_add(1, Ordering::SeqCst);
             println!("[OBSERVER] PlaybackStopped received:");
             println!("           episode_id: {}", event.episode_id);
-            println!("           final_progress_seconds: {}", event.final_progress_seconds);
+            println!(
+                "           final_progress_seconds: {}",
+                event.final_progress_seconds
+            );
         });
     }
 
@@ -144,7 +150,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nth(1)
         .map(PathBuf::from)
         .unwrap_or_else(|| {
-            eprintln!("Usage: cargo run --example playback_event_validation_test -- <video_file_path>");
+            eprintln!(
+                "Usage: cargo run --example playback_event_validation_test -- <video_file_path>"
+            );
             std::process::exit(1);
         });
 
@@ -164,7 +172,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Scan
     let parent_dir = video_path.parent().unwrap().to_path_buf();
     file_service.scan_directory(parent_dir)?;
-    let file = file_repo.get_by_path(&video_path)?.ok_or("File not found")?;
+    let file = file_repo
+        .get_by_path(&video_path.to_string_lossy())?
+        .ok_or("File not found")?;
 
     // Create Anime
     let anime_id = anime_service.create_anime(CreateAnimeRequest {
@@ -186,11 +196,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         duracao_esperada: Some(1440),
     })?;
 
-    // Link File
+    // Link File (CORRECTED: is_primary removed from request)
     episode_service.link_file(LinkFileRequest {
         episode_id,
         file_id: file.id,
-        is_primary: true,
     })?;
 
     println!("[SETUP] Test entities created.");
@@ -209,9 +218,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== EVENT OUTPUT BEGIN ===");
     println!();
 
+    // CORRECTED: file_id is now required (not Option)
     playback_service.start_playback(StartPlaybackRequest {
         episode_id,
-        file_id: Some(file.id),
+        file_id: file.id,
     })?;
 
     // =========================================================================
@@ -264,9 +274,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // We check for >= 0 but warn if 0
     if progress == 0 {
         println!("[WARN] No PlaybackProgressUpdated events received.");
-        println!("       This may be expected for very short playback or if MPV didn't report position.");
+        println!(
+            "       This may be expected for very short playback or if MPV didn't report position."
+        );
     } else {
-        println!("[PASS] PlaybackProgressUpdated emitted ({} times).", progress);
+        println!(
+            "[PASS] PlaybackProgressUpdated emitted ({} times).",
+            progress
+        );
     }
 
     // PlaybackStopped is emitted by the observer when MPV stops

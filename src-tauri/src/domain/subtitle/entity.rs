@@ -8,22 +8,22 @@ use uuid::Uuid;
 pub struct Subtitle {
     /// Internal immutable identifier
     pub id: Uuid,
-    
+
     /// Source file (REQUIRED)
     pub file_id: Uuid,
-    
+
     /// Subtitle format
     pub formato: SubtitleFormat,
-    
+
     /// Language (ISO 639-1 code preferred)
     pub idioma: String,
-    
+
     /// Version identifier (for tracking transformations)
     pub versao: u32,
-    
+
     /// Whether this is the original, unmodified subtitle
     pub eh_original: bool,
-    
+
     /// Creation timestamp
     pub criado_em: DateTime<Utc>,
 }
@@ -43,16 +43,16 @@ pub enum SubtitleFormat {
 pub struct SubtitleTransformation {
     /// Transformation identifier
     pub id: Uuid,
-    
+
     /// Source subtitle that was transformed
     pub subtitle_id_origem: Uuid,
-    
+
     /// Type of transformation
     pub tipo: TransformationType,
-    
+
     /// Parameters applied (stored as JSON)
     pub parametros_aplicados: serde_json::Value,
-    
+
     /// Creation timestamp
     pub criado_em: DateTime<Utc>,
 }
@@ -63,10 +63,10 @@ pub struct SubtitleTransformation {
 pub enum TransformationType {
     /// Style changes (font, size, colors, outline)
     Style,
-    
+
     /// Timing adjustments (sync, offset)
     Timing,
-    
+
     /// Format conversion (SRT -> ASS, etc)
     Conversao,
 }
@@ -74,11 +74,7 @@ pub enum TransformationType {
 impl Subtitle {
     /// Create a new Subtitle entity
     /// This is typically the original subtitle from a file
-    pub fn new(
-        file_id: Uuid,
-        formato: SubtitleFormat,
-        idioma: String,
-    ) -> Self {
+    pub fn new(file_id: Uuid, formato: SubtitleFormat, idioma: String) -> Self {
         Self {
             id: Uuid::new_v4(),
             file_id,
@@ -89,7 +85,7 @@ impl Subtitle {
             criado_em: Utc::now(),
         }
     }
-    
+
     /// Create a derived subtitle from a transformation
     /// This increments the version and marks as non-original
     pub fn derive_from(&self, new_file_id: Uuid, formato: SubtitleFormat) -> Self {

@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::domain::{DomainError, DomainResult};
 
 /// Represents an alias relationship from anime merge
-/// 
+///
 /// CRITICAL INVARIANTS:
 /// - Never deleted (preserves history)
 /// - One anime becomes "principal", other becomes "alias"
@@ -21,13 +21,13 @@ use crate::domain::{DomainError, DomainResult};
 pub struct AnimeAlias {
     /// Internal identifier
     pub id: Uuid,
-    
+
     /// The principal (surviving) anime
     pub anime_principal_id: Uuid,
-    
+
     /// The alias (merged into principal) anime
     pub anime_alias_id: Uuid,
-    
+
     /// When this merge occurred
     pub criado_em: DateTime<Utc>,
 }
@@ -38,7 +38,7 @@ impl AnimeAlias {
         if anime_principal_id == anime_alias_id {
             return Err("Anime cannot be an alias of itself".to_string());
         }
-        
+
         Ok(Self {
             id: Uuid::new_v4(),
             anime_principal_id,
@@ -52,9 +52,9 @@ impl AnimeAlias {
 pub fn validate_anime_alias(alias: &AnimeAlias) -> DomainResult<()> {
     if alias.anime_principal_id == alias.anime_alias_id {
         return Err(DomainError::InvariantViolation(
-            "Anime cannot be an alias of itself".to_string()
+            "Anime cannot be an alias of itself".to_string(),
         ));
     }
-    
+
     Ok(())
 }

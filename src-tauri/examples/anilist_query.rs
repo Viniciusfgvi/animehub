@@ -8,7 +8,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let results = client.search_anime("Naruto").await?;
     println!("Found {} results", results.len());
     for a in results {
-        println!("{} - episodes: {:?}", a.title.romaji.unwrap_or_default(), a.episodes);
+        println!(
+            "{} - episodes: {:?}",
+            a.title.romaji.unwrap_or_default(),
+            a.episodes
+        );
     }
     Ok(())
 }

@@ -9,18 +9,22 @@
 // - Controls pause/seek/stop via IPC commands
 // - Observer handles progress/pause/eof events
 // - All state changes go through events → EpisodeService persists
+//
+// PHASE 4 CORRECTIONS:
+// - REMOVED: get_linked_files call (hallucinated API)
+// - file_id is now required in StartPlaybackRequest
 
-use std::sync::Arc;
-use std::process::{Command, Stdio};
 use std::io::Write;
-use uuid::Uuid;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
+use std::sync::Arc;
+use uuid::Uuid;
 
+use crate::error::{AppError, AppResult};
+use crate::events::{EventBus, PlaybackProgressUpdated, PlaybackStarted};
 use crate::integrations::mpv::MpvClient;
 use crate::repositories::{EpisodeRepository, FileRepository};
-use crate::events::{EventBus, PlaybackStarted, PlaybackProgressUpdated};
-use crate::error::{AppError, AppResult};
-use crate::services::playback_observer::{PlaybackObserver, ObserverConfig};
+use crate::services::playback_observer::{ObserverConfig, PlaybackObserver};
 
 const PIPE_NAME: &str = "animehub-mpv";
 const RESUME_THRESHOLD_SECONDS: u64 = 300;
@@ -28,7 +32,8 @@ const RESUME_THRESHOLD_SECONDS: u64 = 300;
 #[derive(Debug, Clone)]
 pub struct StartPlaybackRequest {
     pub episode_id: Uuid,
-    pub file_id: Option<Uuid>,
+    /// CORRECTION: file_id is now required since get_linked_files doesn't exist
+    pub file_id: Uuid,
 }
 
 fn send_ipc_command(json_cmd: &str) -> std::io::Result<()> {
@@ -70,15 +75,17 @@ impl PlaybackService {
     }
 
     pub fn start_playback(&self, request: StartPlaybackRequest) -> AppResult<PathBuf> {
-        let episode = self.episode_repo.get_by_id(request.episode_id)?.ok_or(AppError::NotFound)?;
+        let episode = self
+            .episode_repo
+            .get_by_id(request.episode_id)?
+            .ok_or(AppError::NotFound)?;
 
-        let file_id = request.file_id.or_else(|| {
-            self.episode_repo.get_linked_files(request.episode_id).ok().and_then(|links| {
-                links.into_iter().find(|&(_, primary)| primary).map(|(id, _)| id)
-            })
-        }).ok_or(AppError::Other("No video file linked".to_string()))?;
+        // CORRECTION: file_id is now required, no fallback to get_linked_files
+        let file = self
+            .file_repo
+            .get_by_id(request.file_id)?
+            .ok_or(AppError::NotFound)?;
 
-        let file = self.file_repo.get_by_id(file_id)?.ok_or(AppError::NotFound)?;
         if file.tipo != crate::domain::file::FileType::Video {
             return Err(AppError::Other("Not a video file".to_string()));
         }
@@ -87,9 +94,13 @@ impl PlaybackService {
         }
 
         let saved_progress = episode.progresso_atual;
-        let start_pos = if saved_progress >= RESUME_THRESHOLD_SECONDS { saved_progress } else { 0 };
+        let start_pos = if saved_progress >= RESUME_THRESHOLD_SECONDS {
+            saved_progress
+        } else {
+            0
+        };
 
-        // CORREÇÃO: is_running retorna Result<bool>
+        // CORREÇÃO: is_running retorna bool
         let is_running = self.mpv_client.is_running();
         if !is_running {
             Command::new("mpv")
@@ -103,7 +114,11 @@ impl PlaybackService {
                 .map_err(|e| AppError::Other(format!("Failed to launch MPV: {}", e)))?;
         }
 
-        let escaped_path = file.caminho_absoluto.to_string_lossy().replace("\\", "\\\\").replace("\"", "\\\"");
+        let escaped_path = file
+            .caminho_absoluto
+            .to_string_lossy()
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"");
         let load_cmd = format!(r#"{{"command":["loadfile","{}","replace"]}}"#, escaped_path);
         let _ = send_ipc_command(&load_cmd);
 
@@ -112,9 +127,11 @@ impl PlaybackService {
             let _ = send_ipc_command(&seek_cmd);
         }
 
-        self.observer.start_observing(request.episode_id, start_pos, episode.duracao_esperada);
+        self.observer
+            .start_observing(request.episode_id, start_pos, episode.duracao_esperada);
 
-        self.event_bus.emit(PlaybackStarted::new(request.episode_id));
+        self.event_bus
+            .emit(PlaybackStarted::new(request.episode_id));
 
         Ok(file.caminho_absoluto.clone())
     }
@@ -143,13 +160,17 @@ impl PlaybackService {
     }
 
     fn report_progress(&self, episode_id: Uuid, progress_seconds: u64) -> AppResult<()> {
-        self.event_bus.emit(PlaybackProgressUpdated::new(episode_id, progress_seconds));
+        self.event_bus
+            .emit(PlaybackProgressUpdated::new(episode_id, progress_seconds));
         Ok(())
     }
 
     // Keep get_current_position if needed elsewhere
     pub fn get_current_position(&self, episode_id: Uuid) -> AppResult<u64> {
-        let episode = self.episode_repo.get_by_id(episode_id)?.ok_or(AppError::NotFound)?;
+        let episode = self
+            .episode_repo
+            .get_by_id(episode_id)?
+            .ok_or(AppError::NotFound)?;
         Ok(episode.progresso_atual)
     }
 }

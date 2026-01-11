@@ -23,7 +23,7 @@ fn validate_progress(episode: &Episode) -> DomainResult<()> {
 }
 
 /// Critical Episode Invariants:
-/// 
+///
 /// 1. Episode MUST belong to exactly one Anime (anime_id required)
 /// 2. Episode can exist without a file
 /// 3. Episode assumes one practical version (no implicit multi-version)

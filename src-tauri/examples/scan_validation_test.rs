@@ -17,8 +17,8 @@
 // - Infer Anime or Episode
 // - Create domain entities
 
-use std::sync::Arc;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use animehub::db::{create_connection_pool, initialize_database};
 use animehub::events::EventBus;
@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. INFRASTRUCTURE BOOTSTRAP (same as main.rs)
     // =========================================================================
     println!("[SETUP] Bootstrapping infrastructure...");
-    
+
     let event_bus = Arc::new(EventBus::new());
     let pool = Arc::new(create_connection_pool()?);
 
@@ -49,7 +49,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. REPOSITORIES
     // =========================================================================
     let anime_repo: Arc<dyn AnimeRepository> = Arc::new(SqliteAnimeRepository::new(pool.clone()));
-    let episode_repo: Arc<dyn EpisodeRepository> = Arc::new(SqliteEpisodeRepository::new(pool.clone()));
+    let episode_repo: Arc<dyn EpisodeRepository> =
+        Arc::new(SqliteEpisodeRepository::new(pool.clone()));
     let file_repo: Arc<dyn FileRepository> = Arc::new(SqliteFileRepository::new(pool.clone()));
 
     // =========================================================================
@@ -92,11 +93,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let episodes_before: usize = {
         // Count all episodes across all animes
         let animes = anime_repo.list_all()?;
-        animes.iter()
-            .map(|a| episode_repo.list_by_anime(a.id).map(|e| e.len()).unwrap_or(0))
+        animes
+            .iter()
+            .map(|a| {
+                episode_repo
+                    .list_by_anime(a.id)
+                    .map(|e| e.len())
+                    .unwrap_or(0)
+            })
             .sum()
     };
-    
+
     println!("[PRE-SCAN] Anime count: {}", animes_before);
     println!("[PRE-SCAN] Episode count: {}", episodes_before);
     println!();
@@ -107,11 +114,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     event_bus.subscribe::<animehub::events::FileDetected, _>(|_event| {
         // no-op: ensures event is observed and logged
     });
-    
+
     event_bus.subscribe::<animehub::events::DirectoryScanned, _>(|_event| {
         // no-op: ensures event is observed and logged
     });
-
 
     // =========================================================================
     // 7. EXECUTE SCAN
@@ -134,8 +140,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let animes_after = anime_repo.list_all()?.len();
     let episodes_after: usize = {
         let animes = anime_repo.list_all()?;
-        animes.iter()
-            .map(|a| episode_repo.list_by_anime(a.id).map(|e| e.len()).unwrap_or(0))
+        animes
+            .iter()
+            .map(|a| {
+                episode_repo
+                    .list_by_anime(a.id)
+                    .map(|e| e.len())
+                    .unwrap_or(0)
+            })
             .sum()
     };
 
@@ -147,16 +159,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 9. VALIDATE: NO IMPLICIT ENTITY CREATION
     // =========================================================================
     println!("[VALIDATION] Checking for implicit entity creation...");
-    
+
     if animes_after != animes_before {
         println!("[FAIL] Anime entities were implicitly created!");
         println!("       Before: {}, After: {}", animes_before, animes_after);
         std::process::exit(1);
     }
-    
+
     if episodes_after != episodes_before {
         println!("[FAIL] Episode entities were implicitly created!");
-        println!("       Before: {}, After: {}", episodes_before, episodes_after);
+        println!(
+            "       Before: {}, After: {}",
+            episodes_before, episodes_after
+        );
         std::process::exit(1);
     }
 
@@ -167,14 +182,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 10. VALIDATE: EVENT LOG
     // =========================================================================
     println!("[VALIDATION] Checking event log...");
-    
+
     let event_log = event_bus.get_event_log();
-    
-    let file_detected_count = event_log.iter()
+
+    let file_detected_count = event_log
+        .iter()
         .filter(|e| e.event_type == "FileDetected")
         .count();
-    
-    let directory_scanned_count = event_log.iter()
+
+    let directory_scanned_count = event_log
+        .iter()
         .filter(|e| e.event_type == "DirectoryScanned")
         .count();
 
@@ -187,7 +204,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if directory_scanned_count != 1 {
-        println!("[FAIL] Expected exactly 1 DirectoryScanned event, got {}", directory_scanned_count);
+        println!(
+            "[FAIL] Expected exactly 1 DirectoryScanned event, got {}",
+            directory_scanned_count
+        );
         std::process::exit(1);
     }
 

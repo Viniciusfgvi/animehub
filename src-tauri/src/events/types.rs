@@ -11,17 +11,17 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::path::PathBuf;
+use uuid::Uuid;
 
 /// Trait that all domain events must implement
 pub trait DomainEvent: std::fmt::Debug + Clone {
     /// Unique identifier for this event instance
     fn event_id(&self) -> Uuid;
-    
+
     /// When this event occurred
     fn occurred_at(&self) -> DateTime<Utc>;
-    
+
     /// Human-readable event type name
     fn event_type(&self) -> &'static str;
 }
@@ -51,9 +51,15 @@ impl DirectoryScanned {
 }
 
 impl DomainEvent for DirectoryScanned {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "DirectoryScanned" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "DirectoryScanned"
+    }
 }
 
 /// Emitted for each relevant file detected during scan
@@ -79,9 +85,15 @@ impl FileDetected {
 }
 
 impl DomainEvent for FileDetected {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "FileDetected" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "FileDetected"
+    }
 }
 
 // ============================================================================
@@ -111,9 +123,15 @@ impl AnimeCreated {
 }
 
 impl DomainEvent for AnimeCreated {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "AnimeCreated" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "AnimeCreated"
+    }
 }
 
 /// Emitted when anime metadata is updated
@@ -135,9 +153,15 @@ impl AnimeUpdated {
 }
 
 impl DomainEvent for AnimeUpdated {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "AnimeUpdated" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "AnimeUpdated"
+    }
 }
 
 /// Emitted when duplicate animes are merged
@@ -161,9 +185,15 @@ impl AnimeMerged {
 }
 
 impl DomainEvent for AnimeMerged {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "AnimeMerged" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "AnimeMerged"
+    }
 }
 
 // ============================================================================
@@ -193,9 +223,15 @@ impl EpisodeCreated {
 }
 
 impl DomainEvent for EpisodeCreated {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "EpisodeCreated" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "EpisodeCreated"
+    }
 }
 
 /// Emitted when a file is linked to an episode
@@ -221,9 +257,15 @@ impl FileLinkedToEpisode {
 }
 
 impl DomainEvent for FileLinkedToEpisode {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "FileLinkedToEpisode" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "FileLinkedToEpisode"
+    }
 }
 
 /// Emitted when an episode becomes playable (has valid video file)
@@ -245,9 +287,15 @@ impl EpisodeBecamePlayable {
 }
 
 impl DomainEvent for EpisodeBecamePlayable {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "EpisodeBecamePlayable" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "EpisodeBecamePlayable"
+    }
 }
 
 /// Emitted when episode progress is updated
@@ -273,9 +321,15 @@ impl EpisodeProgressUpdated {
 }
 
 impl DomainEvent for EpisodeProgressUpdated {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "EpisodeProgressUpdated" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "EpisodeProgressUpdated"
+    }
 }
 
 /// Emitted when an episode is marked as completed
@@ -299,9 +353,15 @@ impl EpisodeCompleted {
 }
 
 impl DomainEvent for EpisodeCompleted {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "EpisodeCompleted" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "EpisodeCompleted"
+    }
 }
 
 // ============================================================================
@@ -327,9 +387,15 @@ impl PlaybackStarted {
 }
 
 impl DomainEvent for PlaybackStarted {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "PlaybackStarted" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "PlaybackStarted"
+    }
 }
 
 /// Emitted periodically during playback
@@ -353,9 +419,15 @@ impl PlaybackProgressUpdated {
 }
 
 impl DomainEvent for PlaybackProgressUpdated {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "PlaybackProgressUpdated" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "PlaybackProgressUpdated"
+    }
 }
 
 /// Emitted when playback stops
@@ -379,9 +451,15 @@ impl PlaybackStopped {
 }
 
 impl DomainEvent for PlaybackStopped {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "PlaybackStopped" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "PlaybackStopped"
+    }
 }
 
 /// Emitted when playback is paused
@@ -405,9 +483,15 @@ impl PlaybackPaused {
 }
 
 impl DomainEvent for PlaybackPaused {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "PlaybackPaused" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "PlaybackPaused"
+    }
 }
 
 /// Emitted when playback is resumed after pause
@@ -429,9 +513,15 @@ impl PlaybackResumed {
 }
 
 impl DomainEvent for PlaybackResumed {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "PlaybackResumed" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "PlaybackResumed"
+    }
 }
 
 /// Emitted when playback finishes naturally (reached end)
@@ -455,9 +545,15 @@ impl PlaybackFinished {
 }
 
 impl DomainEvent for PlaybackFinished {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "PlaybackFinished" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "PlaybackFinished"
+    }
 }
 
 // ============================================================================
@@ -487,9 +583,15 @@ impl SubtitleDetected {
 }
 
 impl DomainEvent for SubtitleDetected {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "SubtitleDetected" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "SubtitleDetected"
+    }
 }
 
 /// Emitted when subtitle style is applied
@@ -513,9 +615,15 @@ impl SubtitleStyleApplied {
 }
 
 impl DomainEvent for SubtitleStyleApplied {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "SubtitleStyleApplied" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "SubtitleStyleApplied"
+    }
 }
 
 /// Emitted when subtitle timing is adjusted
@@ -541,9 +649,15 @@ impl SubtitleTimingAdjusted {
 }
 
 impl DomainEvent for SubtitleTimingAdjusted {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "SubtitleTimingAdjusted" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "SubtitleTimingAdjusted"
+    }
 }
 
 /// Emitted when a new subtitle version is created from transformation
@@ -567,9 +681,15 @@ impl SubtitleVersionCreated {
 }
 
 impl DomainEvent for SubtitleVersionCreated {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "SubtitleVersionCreated" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "SubtitleVersionCreated"
+    }
 }
 
 // ============================================================================
@@ -595,9 +715,15 @@ impl StatisticsRebuilt {
 }
 
 impl DomainEvent for StatisticsRebuilt {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "StatisticsRebuilt" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "StatisticsRebuilt"
+    }
 }
 
 /// Emitted when statistics are updated incrementally
@@ -617,9 +743,15 @@ impl StatisticsUpdated {
 }
 
 impl DomainEvent for StatisticsUpdated {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "StatisticsUpdated" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "StatisticsUpdated"
+    }
 }
 
 // ============================================================================
@@ -647,9 +779,15 @@ impl ExternalMetadataRequested {
 }
 
 impl DomainEvent for ExternalMetadataRequested {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "ExternalMetadataRequested" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "ExternalMetadataRequested"
+    }
 }
 
 /// Emitted when external metadata is fetched
@@ -675,9 +813,15 @@ impl ExternalMetadataFetched {
 }
 
 impl DomainEvent for ExternalMetadataFetched {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "ExternalMetadataFetched" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "ExternalMetadataFetched"
+    }
 }
 
 /// Emitted when external metadata is linked to an anime
@@ -703,7 +847,13 @@ impl ExternalMetadataLinked {
 }
 
 impl DomainEvent for ExternalMetadataLinked {
-    fn event_id(&self) -> Uuid { self.event_id }
-    fn occurred_at(&self) -> DateTime<Utc> { self.occurred_at }
-    fn event_type(&self) -> &'static str { "ExternalMetadataLinked" }
+    fn event_id(&self) -> Uuid {
+        self.event_id
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.occurred_at
+    }
+    fn event_type(&self) -> &'static str {
+        "ExternalMetadataLinked"
+    }
 }

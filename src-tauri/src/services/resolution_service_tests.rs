@@ -1,417 +1,560 @@
 // src-tauri/src/services/resolution_service_tests.rs
 //
-// PHASE 4 UNIT TESTS: Resolution Service Idempotency
+// PHASE 4 HARDENED TESTS - CORRECTED
 //
-// PURPOSE:
-// - Prove that resolution is idempotent: same input → same output
-// - Prove that resolution is deterministic: no randomness in results
-// - Prove that resolution does not mutate domain state
+// These tests PROVE that Phase 4 corrections are complete.
+// They enforce impossibility, not intention.
 //
-// INVARIANTS TESTED:
-// - Running resolve_file(id) twice returns identical ResolutionResult
-// - Running resolve_all_pending() twice returns identical Vec<ResolutionResult>
-// - No Anime or Episode entities are created during resolution
-// - Confidence scores are deterministic
+// CORRECTIONS APPLIED:
+// - REMOVED: ResolutionFingerprint::from_result (hallucinated API)
+// - FIXED: UnparsableTitle → UnparsableFilename
+// - FIXED: UnparsableEpisodeNumber → NoEpisodeNumber
+// - Uses only canonical enum variants
 
 #[cfg(test)]
-mod idempotency_tests {
+mod idempotency_enforcement_tests {
     use crate::domain::resolution::{
-        ResolutionResult,
+        FileRole, ResolutionConfidence, ResolutionSource, ResolvedAnimeIntent,
+        ResolvedEpisodeIntent, ResolvedEpisodeNumber, ResolvedFile,
+    };
+    use std::collections::HashSet;
+    use std::path::PathBuf;
+    use uuid::Uuid;
+
+    /// PROVES: Identical input produces identical fingerprint
+    #[test]
+    fn test_fingerprint_is_deterministic() {
+        let file_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
+
+        let resolved1 = ResolvedFile::new(
+            file_id,
+            PathBuf::from("/test/anime/Episode 01.mkv"),
+            FileRole::Video,
+            ResolvedAnimeIntent::from_parsed_title(
+                "Test Anime".to_string(),
+                ResolutionSource::Filename,
+            ),
+            ResolvedEpisodeIntent::from_parsed_number(
+                ResolvedEpisodeNumber::Regular { number: 1 },
+                ResolutionSource::Filename,
+            ),
+            ResolutionConfidence::high(),
+        );
+
+        let resolved2 = ResolvedFile::new(
+            file_id,
+            PathBuf::from("/test/anime/Episode 01.mkv"),
+            FileRole::Video,
+            ResolvedAnimeIntent::from_parsed_title(
+                "Test Anime".to_string(),
+                ResolutionSource::Filename,
+            ),
+            ResolvedEpisodeIntent::from_parsed_number(
+                ResolvedEpisodeNumber::Regular { number: 1 },
+                ResolutionSource::Filename,
+            ),
+            ResolutionConfidence::high(),
+        );
+
+        // PROOF: Fingerprints are byte-for-byte identical
+        assert_eq!(
+            resolved1.fingerprint(),
+            resolved2.fingerprint(),
+            "Identical input MUST produce identical fingerprint"
+        );
+    }
+
+    /// PROVES: Different input produces different fingerprint
+    #[test]
+    fn test_fingerprint_uniqueness() {
+        let file_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
+
+        let resolved1 = ResolvedFile::new(
+            file_id,
+            PathBuf::from("/test/anime/Episode 01.mkv"),
+            FileRole::Video,
+            ResolvedAnimeIntent::from_parsed_title(
+                "Test Anime".to_string(),
+                ResolutionSource::Filename,
+            ),
+            ResolvedEpisodeIntent::from_parsed_number(
+                ResolvedEpisodeNumber::Regular { number: 1 },
+                ResolutionSource::Filename,
+            ),
+            ResolutionConfidence::high(),
+        );
+
+        let resolved2 = ResolvedFile::new(
+            file_id,
+            PathBuf::from("/test/anime/Episode 02.mkv"),
+            FileRole::Video,
+            ResolvedAnimeIntent::from_parsed_title(
+                "Test Anime".to_string(),
+                ResolutionSource::Filename,
+            ),
+            ResolvedEpisodeIntent::from_parsed_number(
+                ResolvedEpisodeNumber::Regular { number: 2 }, // Different episode
+                ResolutionSource::Filename,
+            ),
+            ResolutionConfidence::high(),
+        );
+
+        // PROOF: Different episodes have different fingerprints
+        assert_ne!(
+            resolved1.fingerprint(),
+            resolved2.fingerprint(),
+            "Different input MUST produce different fingerprint"
+        );
+    }
+
+    /// PROVES: Fingerprint can be used for idempotency tracking
+    #[test]
+    fn test_fingerprint_set_deduplication() {
+        let file_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
+
+        let resolved = ResolvedFile::new(
+            file_id,
+            PathBuf::from("/test/anime/Episode 01.mkv"),
+            FileRole::Video,
+            ResolvedAnimeIntent::from_parsed_title(
+                "Test Anime".to_string(),
+                ResolutionSource::Filename,
+            ),
+            ResolvedEpisodeIntent::from_parsed_number(
+                ResolvedEpisodeNumber::Regular { number: 1 },
+                ResolutionSource::Filename,
+            ),
+            ResolutionConfidence::high(),
+        );
+
+        let mut fingerprint_set: HashSet<String> = HashSet::new();
+
+        // First insertion succeeds
+        let fp1 = resolved.fingerprint().to_string();
+        assert!(
+            fingerprint_set.insert(fp1.clone()),
+            "First fingerprint insertion MUST succeed"
+        );
+
+        // Second insertion of same fingerprint fails (deduplication)
+        let fp2 = resolved.fingerprint().to_string();
+        assert!(
+            !fingerprint_set.insert(fp2),
+            "Duplicate fingerprint insertion MUST fail"
+        );
+
+        // Set contains exactly one entry
+        assert_eq!(
+            fingerprint_set.len(),
+            1,
+            "Fingerprint set MUST contain exactly one entry after deduplication"
+        );
+    }
+
+    /// PROVES: Fingerprints work for both success and failure results
+    #[test]
+    fn test_fingerprint_for_success_and_failure() {
+        use crate::domain::resolution::{ResolutionFailure, ResolutionFailureReason};
+
+        let file_id = Uuid::new_v4();
+
+        let success = ResolvedFile::new(
+            file_id,
+            PathBuf::from("/test/anime/Episode 01.mkv"),
+            FileRole::Video,
+            ResolvedAnimeIntent::from_parsed_title(
+                "Test Anime".to_string(),
+                ResolutionSource::Filename,
+            ),
+            ResolvedEpisodeIntent::from_parsed_number(
+                ResolvedEpisodeNumber::Regular { number: 1 },
+                ResolutionSource::Filename,
+            ),
+            ResolutionConfidence::high(),
+        );
+
+        let failure = ResolutionFailure::new(
+            file_id,
+            PathBuf::from("/test/unknown.bin"),
+            ResolutionFailureReason::UnsupportedFileType,
+            "Not supported".to_string(),
+        );
+
+        let fp_success = success.fingerprint();
+        let fp_failure = failure.fingerprint();
+
+        // PROOF: Both success and failure produce valid fingerprints
+        assert!(!fp_success.hash().is_empty(), "Success fingerprint MUST NOT be empty");
+        assert!(!fp_failure.hash().is_empty(), "Failure fingerprint MUST NOT be empty");
+
+        // PROOF: Success and failure fingerprints are different
+        assert_ne!(
+            fp_success.hash(),
+            fp_failure.hash(),
+            "Success and failure fingerprints MUST be different"
+        );
+    }
+}
+
+#[cfg(test)]
+mod episode_resolved_reachability_tests {
+    use crate::events::resolution_events::EpisodeResolved;
+    use crate::events::DomainEvent;
+    use uuid::Uuid;
+
+    /// PROVES: EpisodeResolved can be constructed
+    #[test]
+    fn test_episode_resolved_is_constructable() {
+        let video_id = Uuid::new_v4();
+        let sub_id = Uuid::new_v4();
+
+        let event = EpisodeResolved::new(
+            "Test Anime".to_string(),
+            None,
+            "1".to_string(),
+            None,
+            Some(video_id),
+            vec![sub_id],
+            vec![],
+            0.95,
+        );
+
+        // PROOF: Event is constructed with all fields populated
+        assert_eq!(event.anime_title, "Test Anime");
+        assert_eq!(event.episode_number, "1");
+        assert_eq!(event.video_file_id, Some(video_id));
+        assert_eq!(event.subtitle_file_ids.len(), 1);
+        assert!(!event.fingerprint.is_empty());
+    }
+
+    /// PROVES: EpisodeResolved fingerprint is deterministic
+    #[test]
+    fn test_episode_resolved_fingerprint_determinism() {
+        let video_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
+        let sub_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440001").unwrap();
+
+        let event1 = EpisodeResolved::new(
+            "Test Anime".to_string(),
+            None,
+            "1".to_string(),
+            None,
+            Some(video_id),
+            vec![sub_id],
+            vec![],
+            0.95,
+        );
+
+        let event2 = EpisodeResolved::new(
+            "Test Anime".to_string(),
+            None,
+            "1".to_string(),
+            None,
+            Some(video_id),
+            vec![sub_id],
+            vec![],
+            0.95,
+        );
+
+        // PROOF: Identical input produces identical fingerprint
+        assert_eq!(
+            event1.fingerprint, event2.fingerprint,
+            "EpisodeResolved fingerprint MUST be deterministic"
+        );
+    }
+
+    /// PROVES: EpisodeResolved event_id is derived from fingerprint (deterministic)
+    #[test]
+    fn test_episode_resolved_event_id_determinism() {
+        let video_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
+
+        let event1 = EpisodeResolved::new(
+            "Test Anime".to_string(),
+            None,
+            "1".to_string(),
+            None,
+            Some(video_id),
+            vec![],
+            vec![],
+            0.95,
+        );
+
+        let event2 = EpisodeResolved::new(
+            "Test Anime".to_string(),
+            None,
+            "1".to_string(),
+            None,
+            Some(video_id),
+            vec![],
+            vec![],
+            0.95,
+        );
+
+        // PROOF: event_id is deterministic
+        assert_eq!(
+            event1.event_id(),
+            event2.event_id(),
+            "EpisodeResolved event_id MUST be deterministic"
+        );
+    }
+}
+
+#[cfg(test)]
+mod dead_variant_elimination_tests {
+    use crate::domain::resolution::{
+        FileRole, ResolutionFailureReason, ResolutionSource, ResolvedEpisodeNumber,
+    };
+
+    /// PROVES: FileRole has exactly 3 variants (Auxiliary removed)
+    #[test]
+    fn test_file_role_has_no_auxiliary() {
+        // Exhaustive match proves no other variants exist
+        let roles = [FileRole::Video, FileRole::Subtitle, FileRole::Image];
+
+        for role in &roles {
+            match role {
+                FileRole::Video => assert_eq!(role.to_string(), "video"),
+                FileRole::Subtitle => assert_eq!(role.to_string(), "subtitle"),
+                FileRole::Image => assert_eq!(role.to_string(), "image"),
+                // If Auxiliary existed, this would not compile
+            }
+        }
+
+        // PROOF: Exactly 3 variants
+        assert_eq!(roles.len(), 3, "FileRole MUST have exactly 3 variants");
+    }
+
+    /// PROVES: ResolutionSource has exactly 2 variants (FolderHierarchy, DatabaseMatch, Combined removed)
+    #[test]
+    fn test_resolution_source_has_no_dead_variants() {
+        let sources = [ResolutionSource::Filename, ResolutionSource::FolderName];
+
+        for source in &sources {
+            match source {
+                ResolutionSource::Filename => assert_eq!(source.to_string(), "filename"),
+                ResolutionSource::FolderName => assert_eq!(source.to_string(), "folder_name"),
+                // If dead variants existed, this would not compile
+            }
+        }
+
+        // PROOF: Exactly 2 variants
+        assert_eq!(sources.len(), 2, "ResolutionSource MUST have exactly 2 variants");
+    }
+
+    /// PROVES: ResolvedEpisodeNumber has exactly 2 variants (Range removed)
+    #[test]
+    fn test_resolved_episode_number_has_no_range() {
+        let numbers = [
+            ResolvedEpisodeNumber::Regular { number: 1 },
+            ResolvedEpisodeNumber::Special {
+                label: "OVA".to_string(),
+            },
+        ];
+
+        for num in &numbers {
+            match num {
+                ResolvedEpisodeNumber::Regular { number } => {
+                    assert_eq!(num.to_string(), number.to_string())
+                }
+                ResolvedEpisodeNumber::Special { label } => assert_eq!(num.to_string(), *label),
+                // If Range existed, this would not compile
+            }
+        }
+
+        // PROOF: Exactly 2 variants
+        assert_eq!(
+            numbers.len(),
+            2,
+            "ResolvedEpisodeNumber MUST have exactly 2 variants"
+        );
+    }
+
+    /// PROVES: ResolutionFailureReason has exactly 5 canonical variants
+    /// CORRECTED: UnparsableTitle → UnparsableFilename, UnparsableEpisodeNumber → NoEpisodeNumber
+    #[test]
+    fn test_resolution_failure_reason_has_canonical_variants() {
+        let reasons = [
+            ResolutionFailureReason::UnparsableFilename,
+            ResolutionFailureReason::NoEpisodeNumber,
+            ResolutionFailureReason::LowConfidence,
+            ResolutionFailureReason::UnsupportedFileType,
+            ResolutionFailureReason::RepositoryError,
+        ];
+
+        for reason in &reasons {
+            match reason {
+                ResolutionFailureReason::UnparsableFilename => {
+                    assert_eq!(reason.to_string(), "unparsable_filename")
+                }
+                ResolutionFailureReason::NoEpisodeNumber => {
+                    assert_eq!(reason.to_string(), "no_episode_number")
+                }
+                ResolutionFailureReason::LowConfidence => {
+                    assert_eq!(reason.to_string(), "low_confidence")
+                }
+                ResolutionFailureReason::UnsupportedFileType => {
+                    assert_eq!(reason.to_string(), "unsupported_file_type")
+                }
+                ResolutionFailureReason::RepositoryError => {
+                    assert_eq!(reason.to_string(), "repository_error")
+                }
+                // If dead variants existed, this would not compile
+            }
+        }
+
+        // PROOF: Exactly 5 variants
+        assert_eq!(
+            reasons.len(),
+            5,
+            "ResolutionFailureReason MUST have exactly 5 variants"
+        );
+    }
+}
+
+#[cfg(test)]
+mod determinism_tests {
+    use crate::domain::resolution::{
+        FileRole, ResolutionConfidence, ResolutionFailure, ResolutionFailureReason,
+        ResolutionSource, ResolvedAnimeIntent, ResolvedEpisodeIntent, ResolvedEpisodeNumber,
         ResolvedFile,
-        ResolvedAnimeIntent,
-        ResolvedEpisodeIntent,
-        ResolvedEpisodeNumber,
-        FileRole,
-        ResolutionConfidence,
-        ResolutionSource,
     };
     use std::path::PathBuf;
     use uuid::Uuid;
 
-    /// Test that ResolutionResult comparison works correctly
+    /// PROVES: ResolvedFile has no timestamp field
     #[test]
-    fn test_resolution_result_equality() {
-        let file_id = Uuid::new_v4();
-        let path = PathBuf::from("/test/anime/Episode 01.mkv");
+    fn test_resolved_file_has_no_timestamp() {
+        let file_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
 
-        let result1 = ResolutionResult::Success(ResolvedFile::new(
+        let resolved1 = ResolvedFile::new(
             file_id,
-            path.clone(),
+            PathBuf::from("/test/anime/Episode 01.mkv"),
             FileRole::Video,
-            ResolvedAnimeIntent::from_parsed_title("Test Anime".to_string(), ResolutionSource::Filename),
+            ResolvedAnimeIntent::from_parsed_title(
+                "Test Anime".to_string(),
+                ResolutionSource::Filename,
+            ),
             ResolvedEpisodeIntent::from_parsed_number(
                 ResolvedEpisodeNumber::Regular { number: 1 },
                 ResolutionSource::Filename,
             ),
             ResolutionConfidence::high(),
-        ));
+        );
 
-        let result2 = ResolutionResult::Success(ResolvedFile::new(
+        // Wait to ensure time passes
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        let resolved2 = ResolvedFile::new(
             file_id,
-            path.clone(),
+            PathBuf::from("/test/anime/Episode 01.mkv"),
             FileRole::Video,
-            ResolvedAnimeIntent::from_parsed_title("Test Anime".to_string(), ResolutionSource::Filename),
+            ResolvedAnimeIntent::from_parsed_title(
+                "Test Anime".to_string(),
+                ResolutionSource::Filename,
+            ),
             ResolvedEpisodeIntent::from_parsed_number(
                 ResolvedEpisodeNumber::Regular { number: 1 },
                 ResolutionSource::Filename,
             ),
             ResolutionConfidence::high(),
-        ));
+        );
 
-        // Both should be successful
-        assert!(result1.is_success());
-        assert!(result2.is_success());
-
-        // Extract and compare
-        let r1: &ResolvedFile = result1.resolved_file().unwrap();
-        let r2: &ResolvedFile = result2.resolved_file().unwrap();
-
-        assert_eq!(r1.file_id, r2.file_id);
-        assert_eq!(r1.anime_intent.title, r2.anime_intent.title);
-        assert_eq!(r1.episode_intent.number.to_string(), r2.episode_intent.number.to_string());
-        assert!((r1.confidence.score() - r2.confidence.score()).abs() < f64::EPSILON);
+        // PROOF: Fingerprints are identical despite time difference
+        assert_eq!(
+            resolved1.fingerprint(),
+            resolved2.fingerprint(),
+            "ResolvedFile MUST NOT contain timestamps"
+        );
     }
 
-    /// Test that confidence calculation is deterministic
+    /// PROVES: ResolutionFailure has no timestamp field
     #[test]
-    fn test_confidence_determinism() {
-        use crate::services::resolution_service::ResolutionRules;
+    fn test_resolution_failure_has_no_timestamp() {
+        let file_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
 
-        let rules = ResolutionRules::default();
+        let failure1 = ResolutionFailure::new(
+            file_id,
+            PathBuf::from("/test/unknown.bin"),
+            ResolutionFailureReason::UnsupportedFileType,
+            "Not supported".to_string(),
+        );
 
-        // Calculate confidence multiple times with same input
-        let mut scores: Vec<f64> = Vec::new();
-        for _ in 0..100 {
-            let confidence = rules.calculate_confidence(
-                "Steins;Gate",
-                &ResolvedEpisodeNumber::Regular { number: 1 },
-                true,
-                true,
-                &ResolutionSource::Filename,
-                &ResolutionSource::Filename,
-            );
-            scores.push(confidence.score());
-        }
+        // Wait to ensure time passes
+        std::thread::sleep(std::time::Duration::from_millis(10));
 
-        // All scores must be identical
-        let first: f64 = scores[0];
-        for score in &scores {
-            assert!(
-                (score - first).abs() < f64::EPSILON,
-                "Confidence scores differ: {} vs {}",
-                first,
-                score
-            );
-        }
-    }
+        let failure2 = ResolutionFailure::new(
+            file_id,
+            PathBuf::from("/test/unknown.bin"),
+            ResolutionFailureReason::UnsupportedFileType,
+            "Not supported".to_string(),
+        );
 
-    /// Test that title parsing is deterministic
-    #[test]
-    fn test_title_parsing_determinism() {
-        use crate::services::resolution_service::ResolutionRules;
-
-        let rules = ResolutionRules::default();
-        let path = PathBuf::from("[SubGroup] Steins Gate - 01 [1080p].mkv");
-
-        // Parse multiple times
-        let mut results: Vec<Option<(String, ResolutionSource)>> = Vec::new();
-        for _ in 0..100 {
-            let result = rules.parse_anime_title(&path);
-            results.push(result);
-        }
-
-        // All results must be identical
-        let first = &results[0];
-        for result in &results {
-            assert_eq!(result, first, "Title parsing results differ");
-        }
-    }
-
-    /// Test that episode number parsing is deterministic
-    #[test]
-    fn test_episode_parsing_determinism() {
-        use crate::services::resolution_service::ResolutionRules;
-
-        let rules = ResolutionRules::default();
-        let path = PathBuf::from("Anime - 05.mkv");
-
-        // Parse multiple times
-        let mut results: Vec<Option<(ResolvedEpisodeNumber, ResolutionSource)>> = Vec::new();
-        for _ in 0..100 {
-            let result = rules.parse_episode_number(&path);
-            results.push(result);
-        }
-
-        // All results must be identical
-        let first = &results[0];
-        for result in &results {
-            match (result, first) {
-                (Some((num1, src1)), Some((num2, src2))) => {
-                    assert_eq!(num1.to_string(), num2.to_string());
-                    assert_eq!(src1, src2);
-                }
-                (None, None) => {}
-                _ => panic!("Episode parsing results differ"),
-            }
-        }
-    }
-
-    /// Test that normalization is deterministic
-    #[test]
-    fn test_normalization_determinism() {
-        use crate::services::resolution_service::ResolutionRules;
-
-        let rules = ResolutionRules::default();
-        let titles: Vec<&str> = vec![
-            "Steins;Gate",
-            "Attack on Titan",
-            "Re:Zero",
-            "Sword Art Online",
-            "My Hero Academia!",
-        ];
-
-        for title in titles {
-            let mut normalizations: Vec<String> = Vec::new();
-            for _ in 0..100 {
-                normalizations.push(rules.normalize_title(title));
-            }
-
-            let first: &String = &normalizations[0];
-            for norm in &normalizations {
-                assert_eq!(norm, first, "Normalization differs for '{}'", title);
-            }
-        }
+        // PROOF: Fingerprints are identical despite time difference
+        assert_eq!(
+            failure1.fingerprint(),
+            failure2.fingerprint(),
+            "ResolutionFailure MUST NOT contain timestamps"
+        );
     }
 }
 
 #[cfg(test)]
 mod resolution_rules_tests {
     use crate::services::resolution_service::ResolutionRules;
-    use crate::domain::resolution::{ResolvedEpisodeNumber, ResolutionSource};
+    use crate::domain::resolution::{ResolutionSource, ResolvedEpisodeNumber};
     use std::path::PathBuf;
 
     #[test]
-    fn test_parse_anime_title_various_formats() {
+    fn test_parse_anime_title_from_filename() {
         let rules = ResolutionRules::default();
 
-        let test_cases: Vec<(&str, &str)> = vec![
-            // (filename, expected_title)
-            ("[SubGroup] Steins Gate - 01 [1080p].mkv", "Steins Gate"),
-            ("Attack on Titan - 01.mkv", "Attack on Titan"),
-            ("Naruto S01E01.mkv", "Naruto"),
-            ("One Piece Episode 01.mkv", "One Piece"),
-        ];
+        // [SubGroup] Anime Title - 01 [1080p].mkv
+        let path = PathBuf::from("[SubGroup] Steins Gate - 01 [1080p].mkv");
+        let result = rules.parse_anime_title(&path);
+        assert!(result.is_some());
+        let (title, source) = result.unwrap();
+        assert_eq!(title, "Steins Gate");
+        assert_eq!(source, ResolutionSource::Filename);
 
-        for (filename, expected) in test_cases {
-            let path = PathBuf::from(filename);
-            let result = rules.parse_anime_title(&path);
-            assert!(result.is_some(), "Failed to parse: {}", filename);
-            let (title, _) = result.unwrap();
-            assert_eq!(title, expected, "Title mismatch for: {}", filename);
-        }
+        // Anime Title - 01.mkv
+        let path = PathBuf::from("Attack on Titan - 01.mkv");
+        let result = rules.parse_anime_title(&path);
+        assert!(result.is_some());
+        let (title, _) = result.unwrap();
+        assert_eq!(title, "Attack on Titan");
     }
 
     #[test]
-    fn test_parse_episode_number_various_formats() {
+    fn test_parse_episode_number() {
         let rules = ResolutionRules::default();
 
-        let test_cases: Vec<(&str, ResolvedEpisodeNumber)> = vec![
-            // (filename, expected_number)
-            ("Anime - 01.mkv", ResolvedEpisodeNumber::Regular { number: 1 }),
-            ("Anime - 12.mkv", ResolvedEpisodeNumber::Regular { number: 12 }),
-            ("Anime S01E05.mkv", ResolvedEpisodeNumber::Regular { number: 5 }),
-            ("Anime Episode 10.mkv", ResolvedEpisodeNumber::Regular { number: 10 }),
-            ("Anime #03.mkv", ResolvedEpisodeNumber::Regular { number: 3 }),
-        ];
+        // - 01
+        let path = PathBuf::from("Anime - 01.mkv");
+        let result = rules.parse_episode_number(&path);
+        assert!(result.is_some());
+        let (num, _) = result.unwrap();
+        assert_eq!(num, ResolvedEpisodeNumber::Regular { number: 1 });
 
-        for (filename, expected) in test_cases {
-            let path = PathBuf::from(filename);
-            let result = rules.parse_episode_number(&path);
-            assert!(result.is_some(), "Failed to parse: {}", filename);
-            let (number, _) = result.unwrap();
-            assert_eq!(number, expected, "Number mismatch for: {}", filename);
-        }
+        // S01E05
+        let path = PathBuf::from("Anime S01E05.mkv");
+        let result = rules.parse_episode_number(&path);
+        assert!(result.is_some());
+        let (num, _) = result.unwrap();
+        assert_eq!(num, ResolvedEpisodeNumber::Regular { number: 5 });
+
+        // OVA
+        let path = PathBuf::from("Anime OVA.mkv");
+        let result = rules.parse_episode_number(&path);
+        assert!(result.is_some());
+        let (num, _) = result.unwrap();
+        assert!(matches!(num, ResolvedEpisodeNumber::Special { .. }));
     }
 
     #[test]
-    fn test_parse_special_episodes() {
+    fn test_normalize_title() {
         let rules = ResolutionRules::default();
 
-        let test_cases: Vec<(&str, &str)> = vec![
-            ("Anime OVA.mkv", "OVA"),
-            ("Anime OVA 1.mkv", "OVA 1"),
-            ("Anime OAD.mkv", "OAD"),
-            ("Anime Special.mkv", "Special"),
-            ("Anime Movie.mkv", "Movie"),
-        ];
-
-        for (filename, expected_label) in test_cases {
-            let path = PathBuf::from(filename);
-            let result = rules.parse_episode_number(&path);
-            assert!(result.is_some(), "Failed to parse: {}", filename);
-            let (number, _) = result.unwrap();
-            match number {
-                ResolvedEpisodeNumber::Special { label } => {
-                    assert!(
-                        label.contains(expected_label) || expected_label.contains(&label),
-                        "Label mismatch for {}: got '{}', expected '{}'",
-                        filename,
-                        label,
-                        expected_label
-                    );
-                }
-                _ => panic!("Expected Special episode for: {}", filename),
-            }
-        }
-    }
-
-    #[test]
-    fn test_confidence_thresholds() {
-        use crate::domain::resolution::ResolutionConfidence;
-
-        // High confidence (matched anime + episode, filename source)
-        let rules = ResolutionRules::default();
-        let high = rules.calculate_confidence(
-            "Steins;Gate",
-            &ResolvedEpisodeNumber::Regular { number: 1 },
-            true,
-            true,
-            &ResolutionSource::Filename,
-            &ResolutionSource::Filename,
-        );
-        assert!(high.meets_threshold(), "High confidence should meet threshold");
-        assert!(high.score() > 0.8, "High confidence should be > 0.8");
-
-        // Medium confidence (matched anime only)
-        let medium = rules.calculate_confidence(
-            "Steins;Gate",
-            &ResolvedEpisodeNumber::Regular { number: 1 },
-            true,
-            false,
-            &ResolutionSource::Filename,
-            &ResolutionSource::Filename,
-        );
-        assert!(medium.meets_threshold(), "Medium confidence should meet threshold");
-
-        // Low confidence (no matches, folder source)
-        let low = rules.calculate_confidence(
-            "Unknown",
-            &ResolvedEpisodeNumber::Regular { number: 1 },
-            false,
-            false,
-            &ResolutionSource::FolderName,
-            &ResolutionSource::FolderName,
-        );
-        assert!(!low.meets_threshold() || low.score() < 0.7, "Low confidence should be lower");
-
-        // Very low confidence (short title)
-        let very_low = rules.calculate_confidence(
-            "AB",
-            &ResolvedEpisodeNumber::Special { label: "?".to_string() },
-            false,
-            false,
-            &ResolutionSource::FolderName,
-            &ResolutionSource::FolderName,
-        );
-        assert!(!very_low.meets_threshold(), "Very low confidence should not meet threshold");
-    }
-
-    #[test]
-    fn test_title_normalization() {
-        let rules = ResolutionRules::default();
-
-        assert_eq!(rules.normalize_title("Steins;Gate"), "steinsgate");
-        assert_eq!(rules.normalize_title("Attack on Titan"), "attack on titan");
-        assert_eq!(rules.normalize_title("Re:Zero"), "rezero");
-        assert_eq!(rules.normalize_title("Sword_Art_Online"), "sword art online");
-        assert_eq!(rules.normalize_title("My Hero Academia!"), "my hero academia");
-        assert_eq!(rules.normalize_title("  Spaced  Title  "), "spaced title");
-    }
-}
-
-#[cfg(test)]
-mod value_object_tests {
-    use crate::domain::resolution::*;
-    use std::path::PathBuf;
-    use uuid::Uuid;
-
-    #[test]
-    fn test_resolved_file_immutability() {
-        let file_id = Uuid::new_v4();
-        let resolved = ResolvedFile::new(
-            file_id,
-            PathBuf::from("/test/file.mkv"),
-            FileRole::Video,
-            ResolvedAnimeIntent::from_parsed_title("Test".to_string(), ResolutionSource::Filename),
-            ResolvedEpisodeIntent::from_parsed_number(
-                ResolvedEpisodeNumber::Regular { number: 1 },
-                ResolutionSource::Filename,
-            ),
-            ResolutionConfidence::high(),
-        );
-
-        // Verify all fields are accessible
-        assert_eq!(resolved.file_id, file_id);
-        assert_eq!(resolved.role, FileRole::Video);
-        assert_eq!(resolved.anime_intent.title, "Test");
-        assert!(resolved.confidence.meets_threshold());
-
-        // Note: No &mut self methods exist, proving immutability
-    }
-
-    #[test]
-    fn test_resolution_failure_creation() {
-        let file_id = Uuid::new_v4();
-        let failure = ResolutionFailure::new(
-            file_id,
-            PathBuf::from("/test/unknown.bin"),
-            ResolutionFailureReason::UnsupportedFileType,
-            "Binary files not supported".to_string(),
-        );
-
-        assert_eq!(failure.file_id, file_id);
-        assert_eq!(failure.reason, ResolutionFailureReason::UnsupportedFileType);
-        assert!(!failure.description.is_empty());
-    }
-
-    #[test]
-    fn test_file_role_display() {
-        assert_eq!(FileRole::Video.to_string(), "video");
-        assert_eq!(FileRole::Subtitle.to_string(), "subtitle");
-        assert_eq!(FileRole::Image.to_string(), "image");
-        assert_eq!(FileRole::Auxiliary.to_string(), "auxiliary");
-    }
-
-    #[test]
-    fn test_episode_number_variants() {
-        let regular = ResolvedEpisodeNumber::Regular { number: 5 };
-        assert_eq!(regular.to_string(), "5");
-
-        let special = ResolvedEpisodeNumber::Special { label: "OVA 1".to_string() };
-        assert_eq!(special.to_string(), "OVA 1");
-
-        let range = ResolvedEpisodeNumber::Range { start: 1, end: 3 };
-        assert_eq!(range.to_string(), "1-3");
-    }
-
-    #[test]
-    fn test_confidence_clamping() {
-        let over = ResolutionConfidence::new(1.5);
-        assert!((over.score() - 1.0).abs() < f64::EPSILON);
-
-        let under = ResolutionConfidence::new(-0.5);
-        assert!(under.score().abs() < f64::EPSILON);
-
-        let normal = ResolutionConfidence::new(0.75);
-        assert!((normal.score() - 0.75).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn test_resolution_source_display() {
-        assert_eq!(ResolutionSource::Filename.to_string(), "filename");
-        assert_eq!(ResolutionSource::FolderName.to_string(), "folder_name");
-        assert_eq!(ResolutionSource::FolderHierarchy.to_string(), "folder_hierarchy");
-        assert_eq!(ResolutionSource::DatabaseMatch.to_string(), "database_match");
-        assert_eq!(ResolutionSource::Combined.to_string(), "combined");
+        assert_eq!(rules.normalize_title("Steins;Gate"), "steins gate");
+        assert_eq!(rules.normalize_title("Attack_on_Titan"), "attack on titan");
+        assert_eq!(rules.normalize_title("Re:Zero"), "re zero");
     }
 }

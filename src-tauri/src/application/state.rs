@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use crate::events::EventBus;
 use crate::services::{
-    AnimeService, EpisodeService, FileService, PlaybackService,
-    StatisticsService, ExternalIntegrationService, SubtitleService,
+    AnimeService, EpisodeService, ExternalIntegrationService, FileService, PlaybackService,
+    StatisticsService, SubtitleService,
 };
 
 /// Application state managed by Tauri.

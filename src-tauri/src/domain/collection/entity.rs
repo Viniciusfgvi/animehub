@@ -8,13 +8,13 @@ use uuid::Uuid;
 pub struct Collection {
     /// Internal immutable identifier
     pub id: Uuid,
-    
+
     /// Collection name
     pub nome: String,
-    
+
     /// Optional description
     pub descricao: Option<String>,
-    
+
     /// Creation timestamp
     pub criado_em: DateTime<Utc>,
 }
@@ -29,7 +29,7 @@ impl Collection {
             criado_em: Utc::now(),
         }
     }
-    
+
     /// Update collection metadata
     pub fn update(&mut self, nome: Option<String>, descricao: Option<Option<String>>) {
         if let Some(n) = nome {

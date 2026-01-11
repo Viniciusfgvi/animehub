@@ -8,24 +8,22 @@
 // - Return DTOs
 // - Never contain business logic
 
+use chrono::DateTime;
 use tauri::State;
 use uuid::Uuid;
-use chrono::DateTime;
 
-use crate::application::{
-    state::AppState,
-    dto::*,
-};
+use crate::application::{dto::*, state::AppState};
+use crate::domain::{AnimeStatus, AnimeType};
 use crate::services::*;
-use crate::domain::{AnimeType, AnimeStatus};
 
 /// List all animes
 #[tauri::command]
 pub async fn list_animes(state: State<'_, AppState>) -> Result<Vec<AnimeDto>, String> {
-    let animes = state.anime_service
+    let animes = state
+        .anime_service
         .list_all_animes()
         .map_err(|e| e.to_string())?;
-    
+
     Ok(animes.into_iter().map(AnimeDto::from).collect())
 }
 
@@ -33,15 +31,15 @@ pub async fn list_animes(state: State<'_, AppState>) -> Result<Vec<AnimeDto>, St
 #[tauri::command]
 pub async fn get_anime(
     anime_id: String,
-    state: State<'_, AppState>
+    state: State<'_, AppState>,
 ) -> Result<Option<AnimeDto>, String> {
-    let id = Uuid::parse_str(&anime_id)
-        .map_err(|e| format!("Invalid UUID: {}", e))?;
-    
-    let anime = state.anime_service
+    let id = Uuid::parse_str(&anime_id).map_err(|e| format!("Invalid UUID: {}", e))?;
+
+    let anime = state
+        .anime_service
         .get_anime(id)
         .map_err(|e| e.to_string())?;
-    
+
     Ok(anime.map(AnimeDto::from))
 }
 
@@ -49,7 +47,7 @@ pub async fn get_anime(
 #[tauri::command]
 pub async fn create_anime(
     dto: CreateAnimeDto,
-    state: State<'_, AppState>
+    state: State<'_, AppState>,
 ) -> Result<String, String> {
     // Parse type
     let tipo = match dto.tipo.as_str() {
@@ -59,7 +57,7 @@ pub async fn create_anime(
         "Special" => AnimeType::Special,
         _ => return Err("Invalid anime type".to_string()),
     };
-    
+
     // Parse status
     let status = match dto.status.as_str() {
         "em_exibicao" => AnimeStatus::EmExibicao,
@@ -67,20 +65,22 @@ pub async fn create_anime(
         "cancelado" => AnimeStatus::Cancelado,
         _ => return Err("Invalid status".to_string()),
     };
-    
+
     // Parse dates
-    let data_inicio = dto.data_inicio
+    let data_inicio = dto
+        .data_inicio
         .map(|s| DateTime::parse_from_rfc3339(&s))
         .transpose()
         .map_err(|e| format!("Invalid start date: {}", e))?
         .map(|dt| dt.with_timezone(&chrono::Utc));
-    
-    let data_fim = dto.data_fim
+
+    let data_fim = dto
+        .data_fim
         .map(|s| DateTime::parse_from_rfc3339(&s))
         .transpose()
         .map_err(|e| format!("Invalid end date: {}", e))?
         .map(|dt| dt.with_timezone(&chrono::Utc));
-    
+
     // Create request
     let request = CreateAnimeRequest {
         titulo_principal: dto.titulo_principal,
@@ -90,13 +90,16 @@ pub async fn create_anime(
         total_episodios: dto.total_episodios,
         data_inicio,
         data_fim,
-        metadados_livres: dto.metadados_livres.unwrap_or(serde_json::Value::Object(serde_json::Map::new())),
+        metadados_livres: dto
+            .metadados_livres
+            .unwrap_or(serde_json::Value::Object(serde_json::Map::new())),
     };
-    
-    let anime_id = state.anime_service
+
+    let anime_id = state
+        .anime_service
         .create_anime(request)
         .map_err(|e| e.to_string())?;
-    
+
     Ok(anime_id.to_string())
 }
 
@@ -106,11 +109,10 @@ pub async fn update_anime(
     anime_id: String,
     titulo_principal: Option<String>,
     status: Option<String>,
-    state: State<'_, AppState>
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let id = Uuid::parse_str(&anime_id)
-        .map_err(|e| format!("Invalid UUID: {}", e))?;
-    
+    let id = Uuid::parse_str(&anime_id).map_err(|e| format!("Invalid UUID: {}", e))?;
+
     let parsed_status = status
         .map(|s| match s.as_str() {
             "em_exibicao" => Ok(AnimeStatus::EmExibicao),
@@ -119,7 +121,7 @@ pub async fn update_anime(
             _ => Err("Invalid status".to_string()),
         })
         .transpose()?;
-    
+
     let request = UpdateAnimeRequest {
         anime_id: id,
         titulo_principal,
@@ -131,10 +133,11 @@ pub async fn update_anime(
         data_fim: None,
         metadados_livres: None,
     };
-    
-    state.anime_service
+
+    state
+        .anime_service
         .update_anime(request)
         .map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }

@@ -12,7 +12,7 @@ pub fn validate_subtitle(subtitle: &Subtitle) -> DomainResult<()> {
 fn validate_language(subtitle: &Subtitle) -> DomainResult<()> {
     if subtitle.idioma.trim().is_empty() {
         return Err(DomainError::InvariantViolation(
-            "Subtitle language cannot be empty".to_string()
+            "Subtitle language cannot be empty".to_string(),
         ));
     }
     Ok(())
@@ -22,14 +22,14 @@ fn validate_language(subtitle: &Subtitle) -> DomainResult<()> {
 fn validate_version(subtitle: &Subtitle) -> DomainResult<()> {
     if subtitle.versao == 0 {
         return Err(DomainError::InvariantViolation(
-            "Subtitle version must be at least 1".to_string()
+            "Subtitle version must be at least 1".to_string(),
         ));
     }
     Ok(())
 }
 
 /// Critical Subtitle Invariants:
-/// 
+///
 /// 1. Every Subtitle MUST have a source File
 /// 2. Original subtitle is NEVER overwritten
 /// 3. Transformations ALWAYS create new versions
@@ -48,11 +48,7 @@ mod tests {
     #[test]
     fn test_valid_subtitle() {
         let file_id = Uuid::new_v4();
-        let subtitle = Subtitle::new(
-            file_id,
-            SubtitleFormat::SRT,
-            "pt-BR".to_string(),
-        );
+        let subtitle = Subtitle::new(file_id, SubtitleFormat::SRT, "pt-BR".to_string());
         assert!(validate_subtitle(&subtitle).is_ok());
         assert_eq!(subtitle.versao, 1);
         assert!(subtitle.eh_original);
@@ -61,15 +57,11 @@ mod tests {
     #[test]
     fn test_derived_subtitle_increments_version() {
         let file_id = Uuid::new_v4();
-        let original = Subtitle::new(
-            file_id,
-            SubtitleFormat::SRT,
-            "en".to_string(),
-        );
-        
+        let original = Subtitle::new(file_id, SubtitleFormat::SRT, "en".to_string());
+
         let new_file_id = Uuid::new_v4();
         let derived = original.derive_from(new_file_id, SubtitleFormat::ASS);
-        
+
         assert_eq!(derived.versao, 2);
         assert!(!derived.eh_original);
         assert_eq!(derived.idioma, original.idioma);
@@ -78,11 +70,7 @@ mod tests {
     #[test]
     fn test_empty_language_fails() {
         let file_id = Uuid::new_v4();
-        let subtitle = Subtitle::new(
-            file_id,
-            SubtitleFormat::SRT,
-            "".to_string(),
-        );
+        let subtitle = Subtitle::new(file_id, SubtitleFormat::SRT, "".to_string());
         assert!(validate_subtitle(&subtitle).is_err());
     }
 }

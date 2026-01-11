@@ -8,10 +8,10 @@
 // - It never modifies sealed components
 // - It translates between DTOs and domain entities
 
-pub mod dto;
 pub mod commands;
+pub mod dto;
 pub mod state;
 
-pub use dto::*;
 pub use commands::*;
+pub use dto::*;
 pub use state::AppState;

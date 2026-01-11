@@ -10,48 +10,44 @@
 // ============================================================================
 
 pub mod anime;
-pub mod episode;
-pub mod file;
-pub mod subtitle;
-pub mod collection;
-pub mod statistics;
-pub mod external_reference;
 pub mod anime_alias;
+pub mod collection;
+pub mod episode;
+pub mod external_reference;
+pub mod file;
 pub mod resolution;
+pub mod statistics;
+pub mod subtitle;
 
 // ============================================================================
 // PUBLIC API RE-EXPORTS
 // ============================================================================
 
 // Anime Domain
-pub use anime::{Anime, AnimeType, AnimeStatus, validate_anime};
+pub use anime::{validate_anime, Anime, AnimeStatus, AnimeType};
 
 // Episode Domain
-pub use episode::{Episode, EpisodeNumber, EpisodeState, validate_episode};
+pub use episode::{validate_episode, Episode, EpisodeNumber, EpisodeState};
 
 // File Domain
-pub use file::{File, FileType, FileOrigin, validate_file};
+pub use file::{validate_file, File, FileOrigin, FileType};
 
 // Subtitle Domain
 pub use subtitle::{
-    Subtitle, 
-    SubtitleFormat, 
-    SubtitleTransformation, 
-    TransformationType,
-    validate_subtitle
+    validate_subtitle, Subtitle, SubtitleFormat, SubtitleTransformation, TransformationType,
 };
 
 // Collection Domain
-pub use collection::{Collection, validate_collection};
+pub use collection::{validate_collection, Collection};
 
 // Statistics Domain (Derived Data)
-pub use statistics::{StatisticsSnapshot, StatisticsType, GlobalStatistics, AnimeStatistics};
+pub use statistics::{AnimeStatistics, GlobalStatistics, StatisticsSnapshot, StatisticsType};
 
 // External Reference
-pub use external_reference::{ExternalReference, validate_external_reference};
+pub use external_reference::{validate_external_reference, ExternalReference};
 
 // Anime Alias
-pub use anime_alias::{AnimeAlias, validate_anime_alias};
+pub use anime_alias::{validate_anime_alias, AnimeAlias};
 
 // ============================================================================
 // DOMAIN ERROR TYPES
@@ -65,13 +61,13 @@ use thiserror::Error;
 pub enum DomainError {
     #[error("Invariant violation: {0}")]
     InvariantViolation(String),
-    
+
     #[error("Progress {progress}s exceeds duration {duration}s")]
     ProgressExceedsDuration { progress: u64, duration: u64 },
-    
+
     #[error("Invalid state transition: {0}")]
     InvalidStateTransition(String),
-    
+
     #[error("Entity not found: {0}")]
     NotFound(String),
 }

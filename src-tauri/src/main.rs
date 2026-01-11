@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let event_bus = Arc::new(EventBus::new());
     let pool = Arc::new(create_connection_pool()?);
     let mpv_client = Arc::new(MpvClient::new()?);
-    
+
     // Initialize schema (idempotent)
     {
         let conn = pool.get()?;
@@ -35,13 +35,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. REPOSITORIES
     // The type `Arc<dyn Trait>` is used to match the service constructor signatures exactly.
     let anime_repo: Arc<dyn AnimeRepository> = Arc::new(SqliteAnimeRepository::new(pool.clone()));
-    let episode_repo: Arc<dyn EpisodeRepository> = Arc::new(SqliteEpisodeRepository::new(pool.clone()));
+    let episode_repo: Arc<dyn EpisodeRepository> =
+        Arc::new(SqliteEpisodeRepository::new(pool.clone()));
     let file_repo: Arc<dyn FileRepository> = Arc::new(SqliteFileRepository::new(pool.clone()));
-    let subtitle_repo: Arc<dyn SubtitleRepository> = Arc::new(SqliteSubtitleRepository::new(pool.clone()));
-    let collection_repo: Arc<dyn CollectionRepository> = Arc::new(SqliteCollectionRepository::new(pool.clone()));
-    let external_ref_repo: Arc<dyn ExternalReferenceRepository> = Arc::new(SqliteExternalReferenceRepository::new(pool.clone()));
-    let anime_alias_repo: Arc<dyn AnimeAliasRepository> = Arc::new(SqliteAnimeAliasRepository::new(pool.clone()));
-    let statistics_repo: Arc<dyn StatisticsRepository> = Arc::new(SqliteStatisticsRepository::new(pool.clone()));
+    let subtitle_repo: Arc<dyn SubtitleRepository> =
+        Arc::new(SqliteSubtitleRepository::new(pool.clone()));
+    let collection_repo: Arc<dyn CollectionRepository> =
+        Arc::new(SqliteCollectionRepository::new(pool.clone()));
+    let external_ref_repo: Arc<dyn ExternalReferenceRepository> =
+        Arc::new(SqliteExternalReferenceRepository::new(pool.clone()));
+    let anime_alias_repo: Arc<dyn AnimeAliasRepository> =
+        Arc::new(SqliteAnimeAliasRepository::new(pool.clone()));
+    let statistics_repo: Arc<dyn StatisticsRepository> =
+        Arc::new(SqliteStatisticsRepository::new(pool.clone()));
 
     // 3. SERVICES
     let anime_service = Arc::new(AnimeService::new(

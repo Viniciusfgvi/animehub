@@ -21,7 +21,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use animehub::db::{create_connection_pool, initialize_database};
-use animehub::domain::anime::{AnimeType, AnimeStatus};
+use animehub::domain::anime::{AnimeStatus, AnimeType};
 use animehub::domain::episode::EpisodeNumber;
 use animehub::events::EventBus;
 use animehub::integrations::MpvClient;
@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. INFRASTRUCTURE BOOTSTRAP
     // =========================================================================
     println!("[SETUP] Bootstrapping infrastructure...");
-    
+
     let event_bus = Arc::new(EventBus::new());
     let pool = Arc::new(create_connection_pool()?);
     let mpv_client = Arc::new(MpvClient::new()?);
@@ -52,10 +52,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. REPOSITORIES
     // =========================================================================
     let anime_repo: Arc<dyn AnimeRepository> = Arc::new(SqliteAnimeRepository::new(pool.clone()));
-    let episode_repo: Arc<dyn EpisodeRepository> = Arc::new(SqliteEpisodeRepository::new(pool.clone()));
+    let episode_repo: Arc<dyn EpisodeRepository> =
+        Arc::new(SqliteEpisodeRepository::new(pool.clone()));
     let file_repo: Arc<dyn FileRepository> = Arc::new(SqliteFileRepository::new(pool.clone()));
-    let anime_alias_repo: Arc<dyn AnimeAliasRepository> = Arc::new(SqliteAnimeAliasRepository::new(pool.clone()));
-    let external_ref_repo: Arc<dyn ExternalReferenceRepository> = Arc::new(SqliteExternalReferenceRepository::new(pool.clone()));
+    let anime_alias_repo: Arc<dyn AnimeAliasRepository> =
+        Arc::new(SqliteAnimeAliasRepository::new(pool.clone()));
+    let external_ref_repo: Arc<dyn ExternalReferenceRepository> =
+        Arc::new(SqliteExternalReferenceRepository::new(pool.clone()));
 
     // =========================================================================
     // 3. SERVICES
@@ -118,9 +121,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Attempt playback
     println!("[CASE 1] Attempting playback (should fail)...");
+    // CORRECTED: file_id is now required, use a fake UUID to test "file not found"
+    let fake_file_id = Uuid::new_v4();
     let result = playback_service.start_playback(StartPlaybackRequest {
         episode_id,
-        file_id: None,
+        file_id: fake_file_id,
     });
 
     match result {
@@ -131,11 +136,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => {
             let error_msg = e.to_string();
             println!("[CASE 1] Error received: {}", error_msg);
-            
-            if error_msg.contains("No video file linked") || error_msg.contains("no file") || error_msg.contains("Not found") {
+
+            if error_msg.contains("No video file linked")
+                || error_msg.contains("no file")
+                || error_msg.contains("Not found")
+            {
                 println!("[PASS] Correct error returned for episode with no file.");
             } else {
-                println!("[WARN] Error returned but message unexpected: {}", error_msg);
+                println!(
+                    "[WARN] Error returned but message unexpected: {}",
+                    error_msg
+                );
                 println!("       (Still passing because error was returned, not panic)");
             }
         }
@@ -161,13 +172,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Generate random UUID that doesn't exist
     let fake_episode_id = Uuid::new_v4();
-    println!("[CASE 2] Using non-existent episode ID: {}", fake_episode_id);
+    println!(
+        "[CASE 2] Using non-existent episode ID: {}",
+        fake_episode_id
+    );
 
     // Attempt playback
     println!("[CASE 2] Attempting playback (should fail)...");
+    // CORRECTED: file_id is now required, use a fake UUID
+    let fake_file_id = Uuid::new_v4();
     let result = playback_service.start_playback(StartPlaybackRequest {
         episode_id: fake_episode_id,
-        file_id: None,
+        file_id: fake_file_id,
     });
 
     match result {
@@ -178,11 +194,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => {
             let error_msg = e.to_string();
             println!("[CASE 2] Error received: {}", error_msg);
-            
-            if error_msg.contains("Not found") || error_msg.contains("not found") || error_msg.contains("NotFound") {
+
+            if error_msg.contains("Not found")
+                || error_msg.contains("not found")
+                || error_msg.contains("NotFound")
+            {
                 println!("[PASS] Correct NotFound error returned.");
             } else {
-                println!("[WARN] Error returned but message unexpected: {}", error_msg);
+                println!(
+                    "[WARN] Error returned but message unexpected: {}",
+                    error_msg
+                );
                 println!("       (Still passing because error was returned, not panic)");
             }
         }
@@ -207,7 +229,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     let fake_episode_id_2 = Uuid::new_v4();
-    println!("[CASE 3] Using non-existent episode ID: {}", fake_episode_id_2);
+    println!(
+        "[CASE 3] Using non-existent episode ID: {}",
+        fake_episode_id_2
+    );
 
     // Attempt to stop playback (nothing is playing)
     println!("[CASE 3] Attempting stop_playback (should not panic)...");

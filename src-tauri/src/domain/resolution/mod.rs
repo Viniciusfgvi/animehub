@@ -15,14 +15,7 @@
 pub mod value_objects;
 
 pub use value_objects::{
-    ResolutionResult,
+    FileRole, ResolutionConfidence, ResolutionFailure, ResolutionFailureReason, ResolutionResult,
+    ResolutionSource, ResolvedAnimeIntent, ResolvedEpisodeIntent, ResolvedEpisodeNumber,
     ResolvedFile,
-    FileRole,
-    ResolutionFailure,
-    ResolutionFailureReason,
-    ResolvedAnimeIntent,
-    ResolvedEpisodeIntent,
-    ResolvedEpisodeNumber,
-    ResolutionSource,
-    ResolutionConfidence,
 };

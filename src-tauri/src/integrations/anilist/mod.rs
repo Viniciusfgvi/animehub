@@ -2,4 +2,4 @@
 
 pub mod client;
 
-pub use client::{AniListClient, AniListAnime, AniListTitle, AniListDate};
+pub use client::{AniListAnime, AniListClient, AniListDate, AniListTitle};

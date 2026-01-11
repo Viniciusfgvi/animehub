@@ -40,7 +40,7 @@ r2d2 = "0.8"
 r2d2_sqlite = "0.25"
 
 # IDs & time
-uuid = { version = "1.10", features = ["v4", "serde"] }
+uuid = { version = "1.10", features = ["v4", "serde", "v5"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Errors
@@ -62,12 +62,14 @@ reqwest = { version = "0.12", features = ["json"] }
 
 # Subtitle processing
 subparse = "0.7"
+log = "0.4.29"
 
 # ----------------------------------------
 # Dev-only dependencies (tests, helpers)
 # ----------------------------------------
 [dev-dependencies]
 tempfile = "3"
+mockall = "0.13.0"
 
 # ----------------------------------------
 # Features
